@@ -1,0 +1,13 @@
+error: failed to get `notedetector` as a dependency of package `gradus v0.1.0 (/home/drusila/Projects/gradus)`
+
+Caused by:
+  failed to load source for dependency `notedetector`
+
+Caused by:
+  Unable to update /home/drusila/Projects/noteDetector
+
+Caused by:
+  failed to read `/home/drusila/Projects/noteDetector/Cargo.toml`
+
+Caused by:
+  No such file or directory (os error 2)

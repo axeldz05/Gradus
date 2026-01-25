@@ -1,0 +1,9 @@
+/home/drusila/Projects/gradus/target/debug/deps/gtk4_macros-e77575b6967c1404.d: /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/lib.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/attribute_parser.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/composite_template_derive.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/template_callbacks_attribute.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/util.rs
+
+/home/drusila/Projects/gradus/target/debug/deps/libgtk4_macros-e77575b6967c1404.so: /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/lib.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/attribute_parser.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/composite_template_derive.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/template_callbacks_attribute.rs /home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/util.rs
+
+/home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/lib.rs:
+/home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/attribute_parser.rs:
+/home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/composite_template_derive.rs:
+/home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/template_callbacks_attribute.rs:
+/home/drusila/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-macros-0.10.3/src/util.rs:

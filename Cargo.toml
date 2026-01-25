@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "notedetector",
+    "gradus-gui"
+]
+[workspace.dependencies]
+anyhow = "1.0.79"
+futures = { version = "0.3.30", features = [
+    "std",
+        "async-await",
+], default-features = false }

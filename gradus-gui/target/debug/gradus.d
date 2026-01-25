@@ -1,0 +1,1 @@
+/home/drusila/Projects/gradus/target/debug/gradus: /home/drusila/Projects/gradus/src/dialog.rs /home/drusila/Projects/gradus/src/header.rs /home/drusila/Projects/gradus/src/main.rs /home/drusila/Projects/gradus/src/tuner.rs
