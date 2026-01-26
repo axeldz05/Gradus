@@ -469,6 +469,7 @@ dependencies = [
 name = "gradus-gui"
 version = "0.1.0"
 dependencies = [
+ "cpal",
  "gtk4",
  "notedetector",
  "relm4",

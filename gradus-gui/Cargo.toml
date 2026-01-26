@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cpal = {workspace = true}
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_20"] }
 relm4 = "0.10.0"
 relm4-components = "0.10.0"

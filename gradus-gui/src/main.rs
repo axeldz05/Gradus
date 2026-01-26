@@ -4,42 +4,31 @@ mod header;
 
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller, RelmApp, RelmWidgetExt, SimpleComponent, prelude::AsyncComponent};
 
-use gtk::{
-    glib::{self, clone, ControlFlow},
-    prelude::{
-        BoxExt, ButtonExt, Cast, FileChooserExt, FileExt, GtkWindowExt,
-        OrientableExt, WidgetExt,
-    },
-    ApplicationWindow, ButtonsType, FileChooserAction, FileChooserDialog, MessageDialog,
-    MessageType, ResponseType,
-};
+use gtk::prelude::*;
 
 use header::{HeaderModel, HeaderOutput};
 use dialog::{DialogModel, DialogOutput, DialogInput};
 
-#[derive(Debug)]
-enum AppMode {
+use crate::tuner::TunerModel;
+
+#[derive(Debug, PartialEq)]
+pub enum AppMode {
     Tuner,
 }
-struct AppModel {
+pub struct AppModel {
     mode: AppMode,
     header: relm4::Controller<HeaderModel>,
     dialog: relm4::Controller<DialogModel>,
+    tuner: relm4::Controller<TunerModel>,
 }
 
 #[derive(Debug)]
-enum AppMsg {
+pub enum AppMsg {
     SetMode(AppMode),
     CloseRequest,
     Close,
 }
 
-// Idea:
-// hay que hacer un drag-and-drop en gtk para cada componente llamado
-// como el Tuner, Metronome, etc.
-// La idea es que se puedan mover entre distintas posiciones.
-// Estos componentes deben de poder escalar manualmente y automaticamente
-// segun el espacio disponible. (Posiblemente con un max_widht y max_height)
 #[relm4::component(pub)]
 impl SimpleComponent for AppModel {
     type Init = AppMode;
@@ -54,23 +43,22 @@ impl SimpleComponent for AppModel {
             .default_height(250)
             .title("Gradus")
             .build() {
+                set_titlebar: Some(model.header.widget()),
                 gtk::Box {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 5,
                     set_margin_all: 5,
+                    #[name = "root_stack"]
+                    gtk::Stack {
+                        set_vexpand: false,
+                        set_vhomogeneous: false,
 
-                    gtk::Label {
-
-                        #[watch]
-                        set_label: &format!("Placeholder for {:?}", model.mode),
+                        add_named[Some("tuner")] = model.tuner.widget(),
                     },
-                    #[local_ref]
-                    tool_grid -> gtk::Grid {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_column_spacing: 15,
-                        set_row_spacing: 5,
-                    }
-
+                },
+                connect_close_request[sender] => move |_| {
+                    sender.input(AppMsg::CloseRequest);
+                    gtk::glib::Propagation::Stop
                 }
         }
     }
@@ -94,10 +82,15 @@ impl SimpleComponent for AppModel {
                 DialogOutput::Close => AppMsg::Close,
             });
 
+        let tuner = TunerModel::builder()
+            .launch(())
+            .detach();
+
         let model = AppModel {
             mode: params,
             header,
             dialog,
+            tuner
         };
 
         let widgets = view_output!();
