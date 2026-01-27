@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "notedetector",
-    "gradus-gui"
+    "gradus-core",
+    "gradus-app"
 ]
 [workspace.dependencies]
 anyhow = "1.0.79"
@@ -11,3 +11,8 @@ futures = { version = "0.3.30", features = [
     "std",
         "async-await",
 ], default-features = false }
+gradus-core = { path = "./gradus-core" }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"

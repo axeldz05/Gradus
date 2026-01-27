@@ -466,14 +466,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "gradus-gui"
+name = "gradus-app"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "gradus-core",
  "gtk4",
- "notedetector",
  "relm4",
  "relm4-components",
+]
+
+[[package]]
+name = "gradus-core"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "pitch-detection",
 ]
 
 [[package]]
@@ -708,14 +716,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys",
-]
-
-[[package]]
-name = "notedetector"
-version = "0.1.0"
-dependencies = [
- "cpal",
- "pitch-detection",
 ]
 
 [[package]]

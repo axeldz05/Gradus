@@ -1,0 +1,11 @@
+[package]
+name = "gradus-app"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gradus-core = { workspace = true }
+cpal = {workspace = true}
+gtk = { version = "0.10.3", package = "gtk4", features = ["v4_20"] }
+relm4 = "0.10.0"
+relm4-components = "0.10.0"
