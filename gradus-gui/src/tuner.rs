@@ -31,7 +31,7 @@ impl SimpleComponent for TunerModel {
             set_valign: gtk::Align::Center,
             gtk::Label {
                 #[watch]
-                set_label: &format!("Note: {}. Offset: {}", &model.current_note, &model.offset),
+                set_label: &format!("Note: {}. Freq: {}. Offset: {}", &model.current_note, &model.freq,&model.offset),
                 set_css_classes: &["title-1"],
             }
         }

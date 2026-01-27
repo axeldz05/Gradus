@@ -22,7 +22,7 @@ impl NoteDetector{
         thread::spawn(move || {
             const WINDOW_SIZE: usize = 1024;
             const PADDING: usize = WINDOW_SIZE / 2;
-            const POWER_THRESHOLD: f32 = 5.0;
+            const POWER_THRESHOLD: f32 = 0.15;
             const CLARITY_THRESHOLD: f32 = 0.6;
 
             let mut detector = McLeodDetector::new(WINDOW_SIZE, PADDING);
@@ -92,7 +92,7 @@ impl NoteDetector{
 
     fn calculate_key_and_octave(frequency: f32)->(i32,i32){
         let note_approximation: f32 = 12.*(frequency/440.).log2()+49.;
-        let nearest_absolute_note: i32 = (note_approximation.round() as i32) + 9;
+        let nearest_absolute_note: i32 = note_approximation.round() as i32;
         let octave: i32 = nearest_absolute_note / 12;
         let numerical_key: i32 = nearest_absolute_note % 12;
         return (numerical_key, octave)
