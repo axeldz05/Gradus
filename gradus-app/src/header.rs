@@ -1,13 +1,10 @@
-use gtk::prelude::{
-    ButtonExt, ToggleButtonExt, WidgetExt,
-};
 use relm4::*;
+use gtk::{glib, prelude::*};
+
+use crate::app::{AppMsg, AppMode};
 
 
 #[derive(Debug)]
-pub enum HeaderOutput {
-    Tuner,
-}
 
 pub struct HeaderModel;
 
@@ -15,21 +12,29 @@ pub struct HeaderModel;
 impl SimpleComponent for HeaderModel {
     type Init = ();
     type Input = ();
-    type Output = HeaderOutput;
+    type Output = AppMsg;
 
     view! {
         #[root]
         gtk::HeaderBar {
             #[wrap(Some)]
             set_title_widget = &gtk::Box {
-                add_css_class: "linked",
-                #[name = "group"]
-                gtk::ToggleButton {
+                add_css_class: relm4::css::LINKED,
+                append: group = &gtk::ToggleButton {
                     set_label: "Tuner",
                     set_active: true,
                     connect_toggled[sender] => move |btn| {
                         if btn.is_active() {
-                            sender.output(HeaderOutput::Tuner).unwrap()
+                            sender.output(AppMsg::SetMode(AppMode::Tuner)).unwrap()
+                        }
+                    },
+                },
+                append = &gtk::ToggleButton {
+                    set_label: "Metronome",
+                    set_group: Some(&group),
+                    connect_toggled[sender] => move |btn| {
+                        if btn.is_active() {
+                            sender.output(AppMsg::SetMode(AppMode::Metronome)).unwrap()
                         }
                     },
                 },

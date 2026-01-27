@@ -1,8 +1,9 @@
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller, RelmApp, RelmWidgetExt, SimpleComponent};
 
 use gtk::prelude::*;
+use std::convert::identity;
 
-use crate::header::{HeaderModel, HeaderOutput};
+use crate::header::HeaderModel;
 use crate::dialog::{DialogModel, DialogOutput, DialogInput};
 
 use crate::tuner::TunerModel;
@@ -11,6 +12,7 @@ use crate::metronome::MetronomeModel;
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
     Tuner,
+    Metronome
 }
 pub struct AppModel {
     mode: AppMode,
@@ -70,9 +72,7 @@ impl SimpleComponent for AppModel {
         let header: Controller<HeaderModel> =
             HeaderModel::builder()
             .launch(())
-            .forward(sender.input_sender(), |msg| match msg {
-                HeaderOutput::Tuner => AppMsg::SetMode(AppMode::Tuner),
-            });
+            .forward(sender.input_sender(), identity);
 
         let dialog = DialogModel::builder()
             .transient_for(&root)
