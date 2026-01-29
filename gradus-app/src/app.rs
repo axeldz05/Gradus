@@ -55,6 +55,12 @@ impl SimpleComponent for AppModel {
 
                         add_named[Some("tuner")] = model.tuner.widget(),
                         add_named[Some("metronome")] = model.metronome.widget(),
+                        
+                        #[watch]
+                        set_visible_child_name: match model.mode{
+                            AppMode::Tuner => "tuner",
+                            AppMode::Metronome => "metronome",
+                        },
                     },
                 },
                 connect_close_request[sender] => move |_| {

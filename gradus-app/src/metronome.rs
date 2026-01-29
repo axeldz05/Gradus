@@ -1,11 +1,16 @@
+use std::sync::mpsc;
+
 use gtk::prelude::*;
 use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent};
+use gradus_core::metronome::{MetronomeCmd, Metronome};
 
 pub struct MetronomeModel {
     active: bool,
-    current_step: i32,
-    notes_in_a_measure: i32,
-    note_type: i32
+    bpm: u32,
+    engine_sender: std::sync::mpsc::Sender<MetronomeCmd>, 
+//    tick_receiver: std::sync::mpsc::Receiver<()>,
+    #[allow(dead_code)]
+    _stream: Option<cpal::Stream>,
 }
 
 #[derive(Debug)]
@@ -26,7 +31,7 @@ impl SimpleComponent for MetronomeModel {
             set_valign: gtk::Align::Center,
             gtk::Label {
                 #[watch]
-                set_label: &format!("Beat: {}. Time signature: {}/{}", &model.current_step, &model.notes_in_a_measure,&model.note_type),
+                // set_label: &format!("Beat: {}. Time signature: {}/{}", &model.current_step, &model.notes_in_a_measure,&model.note_type),
                 set_css_classes: &["title-1"],
             },
             gtk::Button{
@@ -37,11 +42,13 @@ impl SimpleComponent for MetronomeModel {
     }
 
     fn init(_: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
+        let (tx, rx) = mpsc::channel::<MetronomeCmd>();
+        let stream = Metronome::run(rx);
         let model = MetronomeModel {
             active:  false,
-            current_step: 0,
-            notes_in_a_measure: 4,
-            note_type: 4,
+            bpm: 90,
+            engine_sender: tx,
+            _stream: Some(stream)
         };
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -51,6 +58,9 @@ impl SimpleComponent for MetronomeModel {
         match msg {
                 MetronomeMsg::ToggleActive => {
                 self.active = !self.active;
+                if self.engine_sender.send(if self.active {MetronomeCmd::Play} else {MetronomeCmd::Stop}).is_err(){
+                    panic!("aaaaa");
+                }
             },
         }
     }
