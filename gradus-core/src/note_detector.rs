@@ -18,6 +18,7 @@ impl NoteDetector{
 
         let sample_rate = config.sample_rate() as usize;
         let (tx_audio, rx_audio) = mpsc::channel::<Vec<f32>>();
+        let channels = config.channels() as usize;
         
         thread::spawn(move || {
             const WINDOW_SIZE: usize = 1024;
@@ -29,8 +30,10 @@ impl NoteDetector{
             let mut buffer: Vec<f32> = Vec::with_capacity(WINDOW_SIZE);
 
             while let Ok(chunk) = rx_audio.recv() {
-                for sample in chunk {
-                    buffer.push(sample as f32);
+                for (i, sample) in chunk.iter().enumerate() {
+                    if i % channels == 0 {
+                        buffer.push(*sample as f32);
+                    }
                 }
                 if buffer.len() >= WINDOW_SIZE {
                     let result = detector.get_pitch(
@@ -94,7 +97,7 @@ impl NoteDetector{
         let note_approximation: f32 = 12.*(frequency/440.).log2()+49.;
         let nearest_absolute_note: i32 = note_approximation.round() as i32;
         let octave: i32 = (nearest_absolute_note + 8) / 12;
-        let numerical_key: i32 = nearest_absolute_note % 12;
+        let numerical_key: i32 = (nearest_absolute_note - 1).rem_euclid(12) + 1;
         return (numerical_key, octave)
     }
 
@@ -118,6 +121,8 @@ mod tests {
             (27.5, "A_0"),
             (30.86771, "B_0"),
             (32.70320, "C_1"),
+            (207.6523, "G#_3"), // because of the way that numerical_key is calculated: (n - 1) % 12
+                                // + 1. And having numerical_key 1..12
         ];
         for (input, expected) in test_cases {
             let (key, octave) = NoteDetector::calculate_key_and_octave(input);
