@@ -30,10 +30,8 @@ impl NoteDetector{
             let mut buffer: Vec<f32> = Vec::with_capacity(WINDOW_SIZE);
 
             while let Ok(chunk) = rx_audio.recv() {
-                for (i, sample) in chunk.iter().enumerate() {
-                    if i % channels == 0 {
-                        buffer.push(*sample as f32);
-                    }
+                for frame in chunk.chunks(channels) {
+                    buffer.push(frame[0]);
                 }
                 if buffer.len() >= WINDOW_SIZE {
                     let result = detector.get_pitch(
