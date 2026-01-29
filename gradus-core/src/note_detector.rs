@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self, Sender}, thread};
-use pitch_detection::detector::{PitchDetector, mcleod::McLeodDetector};
+use pitch_detection::detector::{PitchDetector, mcleod::McLeodDetector, yin::YINDetector};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 #[derive(Debug)]
@@ -45,7 +45,7 @@ impl NoteDetector{
                         let result = NoteDetector {
                             frequency,
                             note: Self::format_note(key, octave),
-                            offset: Self::offset_by_numerical_key(key, frequency)
+                            offset: Self::cents_offset_by_numerical_key(key, frequency)
                         };
                         if sender.send(result).is_err() {
                             break;
@@ -73,18 +73,18 @@ impl NoteDetector{
 
     fn musical_key(numerical_key: i32) -> String{
         return match numerical_key{
-            1 => String::from("C"),
-            2 => String::from("C#"),
-            3 => String::from("D"),
-            4 => String::from("D#"),
-            5 => String::from("E"),
-            6 => String::from("F"),
-            7 => String::from("F#"),
-            8 => String::from("G"),
-            9 => String::from("G#"),
-            10 => String::from("A"),
-            11 => String::from("A#"),
-            12 => String::from("B"),
+            1 => String::from("A"),
+            2 => String::from("A#"),
+            3 => String::from("B"),
+            4 => String::from("C"),
+            5 => String::from("C#"),
+            6 => String::from("D"),
+            7 => String::from("D#"),
+            8 => String::from("E"),
+            9 => String::from("F"),
+            10 => String::from("F#"),
+            11 => String::from("G"),
+            12 => String::from("G#"),
             _ => String::from("???")
         };
         
@@ -93,7 +93,7 @@ impl NoteDetector{
     fn calculate_key_and_octave(frequency: f32)->(i32,i32){
         let note_approximation: f32 = 12.*(frequency/440.).log2()+49.;
         let nearest_absolute_note: i32 = note_approximation.round() as i32;
-        let octave: i32 = nearest_absolute_note / 12;
+        let octave: i32 = (nearest_absolute_note + 8) / 12;
         let numerical_key: i32 = nearest_absolute_note % 12;
         return (numerical_key, octave)
     }
@@ -103,7 +103,48 @@ impl NoteDetector{
         return format!("{}_{}", key, octave)
     }
 
-    fn offset_by_numerical_key(n: i32, frequency: f32)->f32{
-        return (f32::powf(2., (n as f32 - 49.) / 12. ) * 440.) - frequency/440.;
+    fn cents_offset_by_numerical_key(n: i32, frequency: f32)->f32{
+        return 1200. * (frequency / (f32::powf(2., (n as f32 - 49.) / 12. ) * 440.)).log2();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_border_cases_between_octaves(){
+        let test_cases = [
+            (27.5, "A_0"),
+            (30.86771, "B_0"),
+            (32.70320, "C_1"),
+        ];
+        for (input, expected) in test_cases {
+            let (key, octave) = NoteDetector::calculate_key_and_octave(input);
+            let result = NoteDetector::format_note(key, octave);
+            assert_eq!(
+                result, 
+                expected, 
+                "Test failed with input: {}", input
+            );
+        }
+    }
+
+    #[test]
+    fn test_frequency_c_middle() {
+        let freq = 261.63;
+        let (key, octave) = NoteDetector::calculate_key_and_octave(freq);
+        let note_str = NoteDetector::format_note(key, octave);
+        
+        assert_eq!(octave, 4, "Octave should be 4");
+        assert_eq!(key, 4, "Key should be 4");
+        assert_eq!(note_str, "C_4");
+    }
+
+    #[test]
+    fn test_offset_calculation() {
+        let offset = NoteDetector::cents_offset_by_numerical_key(49, 441.0);
+        assert!(offset.abs() < 5., "cents_offset distance was {}. It should be less than 5", offset);
+        assert!(offset.is_sign_positive(), "cents_offset should be positive when the frequency is above the target");
     }
 }

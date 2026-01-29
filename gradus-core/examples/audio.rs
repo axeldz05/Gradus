@@ -1,4 +1,4 @@
-use notedetector::NoteDetector;
+use gradus_core::note_detector::NoteDetector;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
