@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use std::{f32::consts::PI, sync::mpsc::Receiver};
+use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
 
 #[derive(Debug, Clone)]
@@ -51,10 +51,11 @@ pub struct MetronomeSynth {
     beep_duration: u32,
     rhythm_pattern: RhythmPattern,
     current_rhythm_index: usize,
+    event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 impl MetronomeSynth {
-    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, beat_pattern: RhythmPattern) -> Self {
+    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, beat_pattern: RhythmPattern, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
         Self {
             sample_rate,
             frequency: 1000.0,
@@ -66,6 +67,7 @@ impl MetronomeSynth {
             is_playing: false,
             rhythm_pattern: beat_pattern,
             current_rhythm_index: 0,
+            event_sender,
         }
     }
 
@@ -107,6 +109,9 @@ impl MetronomeSynth {
                     let volume_factor = step_type.to_volume();
                     self.volume = self.master_volume * volume_factor;
                 }
+                if let Some(sender) = &self.event_sender {
+                    let _ = sender.send(MetronomeEvent::Tick(self.current_rhythm_index));
+                }
             }
         }
     }
@@ -116,6 +121,7 @@ impl MetronomeSynth {
 pub struct Metronome{
     pub is_playing: bool,
     rhythm_pattern: RhythmPattern,
+    event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 pub enum MetronomeCmd {
@@ -125,20 +131,26 @@ pub enum MetronomeCmd {
     Stop,
 }
 
+pub enum MetronomeEvent {
+    Tick(usize)
+}
+
 impl Metronome{
-    pub fn new(rhythm_pattern: RhythmPattern) -> Self {
+    pub fn new(rhythm_pattern: RhythmPattern, sender: Sender<MetronomeEvent>) -> Self {
         Self {
             is_playing: false,
             rhythm_pattern: rhythm_pattern,
+            event_sender:  Some(sender),
         }
     }
+
     pub fn run(self, cmd_receiver: Receiver<MetronomeCmd>) -> cpal::Stream {
         let host = cpal::default_host();
         let device = host.default_output_device().expect("No output device");
         let config = device.default_output_config().unwrap();
         let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
-        let mut synth = MetronomeSynth::new(sample_rate as f32, 90, 0.5, self.rhythm_pattern);
+        let mut synth = MetronomeSynth::new(sample_rate as f32, 90, 0.5, self.rhythm_pattern, self.event_sender);
 
         let stream = device.build_output_stream(
             &config.into(),
