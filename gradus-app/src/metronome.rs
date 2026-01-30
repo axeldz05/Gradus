@@ -43,7 +43,8 @@ impl SimpleComponent for MetronomeModel {
 
     fn init(_: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let (tx, rx) = mpsc::channel::<MetronomeCmd>();
-        let stream = Metronome::run(rx);
+        let metronome = Metronome::new(gradus_core::metronome::RhythmPattern::default_from_signature());
+        let stream = metronome.run(rx);
         let model = MetronomeModel {
             active:  false,
             bpm: 90,
