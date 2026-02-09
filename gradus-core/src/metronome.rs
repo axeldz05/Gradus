@@ -1,44 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
-
-#[derive(Debug, Clone)]
-pub enum BeatType {
-    Accent,
-    SoftAccent,
-    Normal,
-    Silence,
-}
-
-impl BeatType {
-    pub fn to_volume(&self) -> f32 {
-        match self {
-            BeatType::Accent => 1.0,
-            BeatType::SoftAccent=> 0.7,
-            BeatType::Normal => 0.4,
-            BeatType::Silence => 0.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RhythmPattern {
-    pub steps: Vec<BeatType>,
-}
-
-impl RhythmPattern {
-    pub fn default_from_signature() -> Self {
-        let mut steps = Vec::with_capacity(4 as usize);
-        for i in 0..4 {
-            if i == 0 {
-                steps.push(BeatType::Accent);
-            } else {
-                steps.push(BeatType::Normal);
-            }
-        }
-        Self { steps }
-    }
-}
+use crate::editor::Measure;
 
 pub struct MetronomeSynth {
     pub is_playing: bool,
@@ -47,38 +10,39 @@ pub struct MetronomeSynth {
     master_volume: f32,
     volume: f32,
     samples_per_beat: u32,
-    current_sample_count: u32,
+    current_sample_count: f32,
     beep_duration: u32,
-    rhythm_pattern: RhythmPattern,
+    measure: Measure,
     current_rhythm_index: usize,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 impl MetronomeSynth {
-    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, beat_pattern: RhythmPattern, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
+    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, measure: Measure, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
         Self {
             sample_rate,
             frequency: 1000.0,
             master_volume,
             volume: 0.5,
             samples_per_beat: (sample_rate * 60.0 / bpm as f32) as u32,
-            current_sample_count: 0,
+            current_sample_count: 0.,
             beep_duration: (sample_rate * 0.1) as u32, 
             is_playing: false,
-            rhythm_pattern: beat_pattern,
+            measure: measure,
             current_rhythm_index: 0,
             event_sender,
         }
     }
 
-    pub fn set_rhythm_pattern(&mut self, new_pattern: RhythmPattern) {
-        self.rhythm_pattern = new_pattern;
+    pub fn set_measure(&mut self, new_measure: Measure) {
+        self.measure = new_measure;
         self.current_rhythm_index = 0; 
     }
 
     pub fn set_bpm(&mut self, bpm: u32) {
         if bpm > 0 {
-            self.samples_per_beat = (self.sample_rate * 60.0 / bpm as f32) as u32;
+            self.samples_per_beat = 
+                (self.sample_rate * 60.0 / (bpm as u32) as f32) as u32;
         }
     }
 
@@ -89,7 +53,7 @@ impl MetronomeSynth {
         }
         for frame in output.chunks_mut(channels) {
             let mut value = 0.0;
-            if self.current_sample_count < self.beep_duration {
+            if (self.current_sample_count as u32) < self.beep_duration {
                 let t = self.current_sample_count as f32 / self.sample_rate;
                 value = (t * self.frequency * 2.0 * PI).sin() * self.volume;
                 let progress = self.current_sample_count as f32 / self.beep_duration as f32;
@@ -98,15 +62,21 @@ impl MetronomeSynth {
             for sample in frame.iter_mut() {
                 *sample = value;
             }
-            self.current_sample_count += 1;
-            if self.current_sample_count >= self.samples_per_beat {
-                self.current_sample_count = 0;
+            match self.measure.notes[self.current_rhythm_index].duration {
+                crate::editor::NoteDuration::Whole=> self.current_sample_count += 0.25,
+                crate::editor::NoteDuration::Half => self.current_sample_count += 0.5,
+                crate::editor::NoteDuration::Quarter => self.current_sample_count += 1.,
+                crate::editor::NoteDuration::Eighth => self.current_sample_count += 2.,
+                crate::editor::NoteDuration::Sixteenth => self.current_sample_count += 4.,
+            }
+            if self.current_sample_count as u32 >= self.samples_per_beat {
+                self.current_sample_count = 0.;
                 self.current_rhythm_index += 1;
-                if self.current_rhythm_index >= self.rhythm_pattern.steps.len() {
+                if self.current_rhythm_index >= self.measure.notes.len() {
                     self.current_rhythm_index = 0;
                 }
-                if let Some(step_type) = self.rhythm_pattern.steps.get(self.current_rhythm_index) {
-                    let volume_factor = step_type.to_volume();
+                if let Some(step_type) = self.measure.notes.get(self.current_rhythm_index) {
+                    let volume_factor = step_type.accent.to_volume();
                     self.volume = self.master_volume * volume_factor;
                 }
                 if let Some(sender) = &self.event_sender {
@@ -120,13 +90,13 @@ impl MetronomeSynth {
 #[derive(Debug)]
 pub struct Metronome{
     pub is_playing: bool,
-    rhythm_pattern: RhythmPattern,
+    measure: Measure,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 pub enum MetronomeCmd {
     SetBPM(u32),
-    SetRhythmPattern(RhythmPattern),
+    SetMeasure(Measure),
     Play,
     Stop,
 }
@@ -136,10 +106,10 @@ pub enum MetronomeEvent {
 }
 
 impl Metronome{
-    pub fn new(rhythm_pattern: RhythmPattern, sender: Sender<MetronomeEvent>) -> Self {
+    pub fn new(measure: Measure, sender: Sender<MetronomeEvent>) -> Self {
         Self {
             is_playing: false,
-            rhythm_pattern: rhythm_pattern,
+            measure,
             event_sender:  Some(sender),
         }
     }
@@ -150,7 +120,7 @@ impl Metronome{
         let config = device.default_output_config().unwrap();
         let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
-        let mut synth = MetronomeSynth::new(sample_rate as f32, 90, 0.5, self.rhythm_pattern, self.event_sender);
+        let mut synth = MetronomeSynth::new(sample_rate as f32, 60, 0.5, self.measure, self.event_sender);
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -158,11 +128,11 @@ impl Metronome{
                 while let Ok(cmd) = cmd_receiver.try_recv() {
                     match cmd {
                         MetronomeCmd::SetBPM(bpm) => synth.set_bpm(bpm),
-                        MetronomeCmd::SetRhythmPattern(pattern) => synth.set_rhythm_pattern(pattern),
+                        MetronomeCmd::SetMeasure(pattern) => synth.set_measure(pattern),
                         MetronomeCmd::Play => synth.is_playing = true,
                         MetronomeCmd::Stop => {
                             synth.is_playing = false;
-                            synth.current_sample_count = 0;
+                            synth.current_sample_count = 0.;
                         },
                     }
                 }
