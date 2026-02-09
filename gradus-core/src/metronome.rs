@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
-use crate::editor::{Measure, NoteDuration};
+use crate::editor::Measure;
 
 pub struct MetronomeSynth {
     pub is_playing: bool,
@@ -10,7 +10,7 @@ pub struct MetronomeSynth {
     master_volume: f32,
     volume: f32,
     samples_per_beat: u32,
-    current_sample_count: f32,
+    current_sample_count: u32,
     beep_duration: u32,
     measure: Measure,
     current_rhythm_index: usize,
@@ -25,7 +25,7 @@ impl MetronomeSynth {
             master_volume,
             volume: 0.5,
             samples_per_beat: (sample_rate * 60.0 / bpm as f32) as u32,
-            current_sample_count: 0.,
+            current_sample_count: 0,
             beep_duration: (sample_rate * 0.1) as u32, 
             is_playing: false,
             measure: measure,
@@ -37,6 +37,7 @@ impl MetronomeSynth {
     pub fn set_measure(&mut self, new_measure: Measure) {
         self.measure = new_measure;
         self.current_rhythm_index = 0; 
+        self.current_sample_count = 0;
     }
 
     pub fn set_bpm(&mut self, bpm: u32) {
@@ -62,22 +63,21 @@ impl MetronomeSynth {
             for sample in frame.iter_mut() {
                 *sample = value;
             }
-            match self.measure.notes[self.current_rhythm_index].duration {
-                NoteDuration::Whole=> self.current_sample_count += 0.25,
-                NoteDuration::Half => self.current_sample_count += 0.5,
-                NoteDuration::Quarter => self.current_sample_count += 1.,
-                NoteDuration::Eighth => self.current_sample_count += 2.,
-                NoteDuration::Sixteenth => self.current_sample_count += 4.,
-            }
+            self.current_sample_count += 4; // sixteenth note
             if self.current_sample_count as u32 >= self.samples_per_beat {
-                self.current_sample_count = 0.;
+                self.current_sample_count = 0;
                 self.current_rhythm_index += 1;
                 if self.current_rhythm_index >= self.measure.notes.len() {
                     self.current_rhythm_index = 0;
                 }
                 if let Some(step_type) = self.measure.notes.get(self.current_rhythm_index) {
-                    let volume_factor = step_type.accent.to_volume();
-                    self.volume = self.master_volume * volume_factor;
+                    match step_type{
+                        Some(note) => {
+                            let volume_factor = note.accent.to_volume();
+                            self.volume = self.master_volume * volume_factor;
+                        },
+                        None => self.volume = 0.,
+                    }
                 }
                 if let Some(sender) = &self.event_sender {
                     let _ = sender.send(MetronomeEvent::Tick(self.current_rhythm_index));
@@ -132,7 +132,7 @@ impl Metronome{
                         MetronomeCmd::Play => synth.is_playing = true,
                         MetronomeCmd::Stop => {
                             synth.is_playing = false;
-                            synth.current_sample_count = 0.;
+                            synth.current_sample_count = 0;
                         },
                     }
                 }

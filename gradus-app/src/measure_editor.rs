@@ -95,16 +95,16 @@ impl SimpleComponent for MeasureEditorModel {
                         }
                         context.stroke().expect("Stroke failed");
 
-                        for note in &measure.notes {
-                            let x = note.start_pos as f64 * tick_width;
-                            let width = note.duration as u32 as f64 * tick_width;
-                            
-                            let (r, g, b) = match note.accent {
-                                NoteAccent::Strong => (0.8, 0.2, 0.2),
-                                NoteAccent::SoftStrong => (0.55, 0.2, 0.2),
-                                NoteAccent::Weak => (0.2, 0.4, 0.8),
-                                NoteAccent::Mute => (0.5, 0.5, 0.5),
-                            };
+                        for i in 0..measure.notes.len() {
+                            let x = i as f64 * tick_width;
+                            if let Some(note) = measure.notes[i]{
+                                let width = note.duration as u32 as f64 * tick_width;
+                                let (r, g, b) = match note.accent {
+                                    NoteAccent::Strong => (0.8, 0.2, 0.2),
+                                    NoteAccent::SoftStrong => (0.55, 0.2, 0.2),
+                                    NoteAccent::Weak => (0.2, 0.4, 0.8),
+                                    NoteAccent::Mute => (0.5, 0.5, 0.5),
+                                };
 
                             // body of the note
                             context.set_source_rgb(r, g, b);
@@ -116,6 +116,7 @@ impl SimpleComponent for MeasureEditorModel {
                             context.set_line_width(2.0);
                             context.rectangle(x + 1.0, 10.0, width - 2.0, h as f64 - 20.0);
                             context.stroke().expect("Stroke note failed");
+                            }
                         }
                     }
                 }
@@ -155,28 +156,34 @@ impl SimpleComponent for MeasureEditorModel {
             }
             
             MeasureEditorMsg::CanvasClick { x, y, button, width } => {
-                if button == 1 {
-                    println!("CanvasClick. X: {}, Y: {}, button: {}", x, y, button);
-                    let total_ticks = self.measure.total_ticks();
-                    let tick_width = width as f64 / total_ticks as f64;
-                    println!("total_ticks: {}, tick_width: {}", total_ticks, tick_width);
-                    let clicked_index = (x / tick_width).floor() as u32;
-                    if clicked_index < total_ticks {
-                        println!("at position: {}", clicked_index);
-                        let res = self.measure.try_add_note(EditorNote{
-                            start_pos: clicked_index, 
+                println!("CanvasClick. X: {}, Y: {}, button: {}", x, y, button);
+                let total_ticks = self.measure.total_ticks() as usize;
+                let tick_width = width as f64 / total_ticks as f64;
+                println!("total_ticks: {}, tick_width: {}", total_ticks, tick_width);
+                let clicked_index = (x / tick_width).floor() as usize;
+                if clicked_index < total_ticks {
+                    println!("at position: {}", clicked_index);
+                    if button == 1 {
+                        let res = self.measure.set_note(EditorNote{
                             duration: self.selected_duration, 
-                            accent: self.selected_accent});
+                            accent: self.selected_accent}, clicked_index);
                         match res {
                             Err(error) => {
-                                println!("try_add_note result: {}", error)
+                                println!("set_note error: {}", error)
                             },
                             Ok(_) => ()
                         }
+                        self.sync_audio(&sender);
+                    } else if button == 3 {
+                        let res = self.measure.remove_note(clicked_index);
+                        match res {
+                            Err(error) => {
+                                println!("remove_note error: {}", error)
+                            },
+                            Ok(_) => ()
+                        }
+                        self.sync_audio(&sender);
                     }
-                    self.sync_audio(&sender);
-                } else if button == 3 {
-                    self.sync_audio(&sender);
                 }
             }
 

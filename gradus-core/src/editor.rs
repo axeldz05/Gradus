@@ -31,7 +31,6 @@ impl NoteAccent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct EditorNote {
-    pub start_pos: u32,
     pub duration: NoteDuration,
     pub accent: NoteAccent,
 }
@@ -40,56 +39,65 @@ pub struct EditorNote {
 pub struct Measure {
     pub time_signature_upper: u32,
     pub time_signature_lower: u32,
-    pub notes: Vec<EditorNote>,
+    pub notes: Vec<Option<EditorNote>>,
 }
 
 impl Measure {
     pub fn default_from_signature() -> Self {
         Self { time_signature_upper: 4, 
             time_signature_lower: 4, 
-            notes: vec![EditorNote {
-                start_pos: 0, 
+            notes: vec![Some(EditorNote {
                 duration: NoteDuration::Quarter,
-                accent: NoteAccent::Strong }, 
-            EditorNote {
-                start_pos: 4, 
+                accent: NoteAccent::Strong }), 
+            None,
+            None,
+            None,
+            Some(EditorNote {
                 duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak },
-            EditorNote {
-                start_pos: 8, 
+                accent: NoteAccent::Weak }),
+            None,
+            None,
+            None,
+            Some(EditorNote {
                 duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak },
-            EditorNote {
-                start_pos: 12, 
+                accent: NoteAccent::Weak }),
+            None,
+            None,
+            None,
+            Some(EditorNote {
                 duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak },
-
+                accent: NoteAccent::Weak }),
+            None,
+            None,
+            None,
             ] 
         }
     }
     pub fn new(upper: u32, lower: u32) -> Self {
+        let ticks = (upper * 16) / lower;
         Self {
             time_signature_upper: upper,
             time_signature_lower: lower,
-            notes: Vec::new(),
+            notes: vec![None; ticks as usize]
         }
     }
 
-    pub fn try_add_note(&mut self, new_note: EditorNote) -> Result<(), String> {
-        let total_capacity = self.total_ticks();
-        if new_note.start_pos + (new_note.duration as u32) > total_capacity {
-            return Err(
-                format!("Note exceeds the duration available in the measure at pos: {}", 
-                    new_note.start_pos));
+    pub fn set_note(&mut self, new_note: EditorNote, at_pos: usize) -> Result<(), String> {
+        if at_pos >= self.notes.len() {
+            return Err(format!("Position {} out of bounds", at_pos));
         }
-        for note in &self.notes {
-            if self.is_overlapping(note, &new_note) {
-                return Err(format!("There's a note overlapping at pos: {}", 
-                    new_note.start_pos));
-            }
+        if self.is_overlapping(&new_note, at_pos){
+            return Err(format!("Overlap detected with note at pos {}", at_pos));
         }
-        self.notes.push(new_note);
-        self.notes.sort_by_key(|n| n.start_pos);
+        self.notes[at_pos] = Some(new_note);
+        Ok(())
+    }
+
+    pub fn remove_note(&mut self, at_pos: usize) -> Result<(), String> {
+        if at_pos >= self.notes.len() {
+            return Err(format!("Position {} out of bounds", at_pos));
+        }
+        self.notes[at_pos] = None;
         Ok(())
     }
     
@@ -98,9 +106,16 @@ impl Measure {
         (self.time_signature_upper * 16) / self.time_signature_lower
     }
     
-    pub fn is_overlapping(&self, n1: &EditorNote, n2: &EditorNote) -> bool {
-        let n1_end = n1.start_pos + n1.duration as u32;
-        let n2_end = n2.start_pos + n2.duration as u32;
-        n1.start_pos < n2_end && n2.start_pos < n1_end
+    pub fn is_overlapping(&self, new_note: &EditorNote, new_note_pos: usize) -> bool {
+        for (i, slot) in self.notes.iter().enumerate() {
+            if let Some(existing_note) = slot {
+                let n1_end = i + existing_note.duration as usize;
+                let n2_end = new_note_pos + new_note.duration as usize;
+                if i < n2_end && new_note_pos < n1_end {
+                    return true
+                }
+            }
+        }
+        false
     }
 }

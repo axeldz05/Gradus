@@ -56,24 +56,26 @@ impl SimpleComponent for MetronomeModel {
                         for (i, step) in pattern.notes.iter().enumerate() {
                             let x = i as f64 * (box_size + padding);
                             let y = (h as f64 - box_size) / 2.0;
-                            let (r, g, b) = match step.accent {
-                                NoteAccent::Strong => (0.9, 0.3, 0.3),
-                                NoteAccent::Weak => (0.3, 0.3, 0.9),
-                                _ => (0.5, 0.5, 0.5),
-                            };
-                            let is_active = Some(i) == current_index;
-                            if is_active {
-                                context.set_source_rgb(r, g, b);
-                                context.rectangle(x, y, box_size, box_size);
-                                context.fill().expect("fill failed");
-                                context.set_source_rgb(1.0, 1.0, 1.0);
-                                context.set_line_width(2.0);
-                                context.rectangle(x + 2.0, y + 2.0, box_size - 4.0, box_size - 4.0);
-                                context.stroke().expect("stroke failed");
-                            } else {
-                                context.set_source_rgba(r, g, b, 0.3);
-                                context.rectangle(x, y, box_size, box_size);
-                                context.fill().expect("fill dim failed");
+                            if let Some(current_step) = step{
+                                let (r, g, b) = match current_step.accent {
+                                    NoteAccent::Strong => (0.9, 0.3, 0.3),
+                                    NoteAccent::Weak => (0.3, 0.3, 0.9),
+                                    _ => (0.5, 0.5, 0.5),
+                                };
+                                let is_active = Some(i) == current_index;
+                                if is_active {
+                                    context.set_source_rgb(r, g, b);
+                                    context.rectangle(x, y, box_size, box_size);
+                                    context.fill().expect("fill failed");
+                                    context.set_source_rgb(1.0, 1.0, 1.0);
+                                    context.set_line_width(2.0);
+                                    context.rectangle(x + 2.0, y + 2.0, box_size - 4.0, box_size - 4.0);
+                                    context.stroke().expect("stroke failed");
+                                } else {
+                                    context.set_source_rgba(r, g, b, 0.3);
+                                    context.rectangle(x, y, box_size, box_size);
+                                    context.fill().expect("fill dim failed");
+                                }
                             }
                         }
                     }
