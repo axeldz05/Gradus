@@ -78,11 +78,14 @@ impl Measure {
     pub fn try_add_note(&mut self, new_note: EditorNote) -> Result<(), String> {
         let total_capacity = self.total_ticks();
         if new_note.start_pos + (new_note.duration as u32) > total_capacity {
-            return Err("La nota excede la duración del compás".to_string());
+            return Err(
+                format!("Note exceeds the duration available in the measure at pos: {}", 
+                    new_note.start_pos));
         }
         for note in &self.notes {
             if self.is_overlapping(note, &new_note) {
-                return Err("Ya hay una nota en esa posición".to_string());
+                return Err(format!("There's a note overlapping at pos: {}", 
+                    new_note.start_pos));
             }
         }
         self.notes.push(new_note);

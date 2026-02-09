@@ -138,7 +138,7 @@ impl Metronome{
                 }
                 synth.process(data, channels);
             },
-            |err| eprintln!("Error en metrónomo: {}", err),
+            |err| eprintln!("Metronome error: {}", err),
             None
         ).unwrap();
 
