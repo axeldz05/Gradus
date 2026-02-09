@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
-use crate::editor::Measure;
+use crate::editor::{Measure, NoteDuration};
 
 pub struct MetronomeSynth {
     pub is_playing: bool,
@@ -63,11 +63,11 @@ impl MetronomeSynth {
                 *sample = value;
             }
             match self.measure.notes[self.current_rhythm_index].duration {
-                crate::editor::NoteDuration::Whole=> self.current_sample_count += 0.25,
-                crate::editor::NoteDuration::Half => self.current_sample_count += 0.5,
-                crate::editor::NoteDuration::Quarter => self.current_sample_count += 1.,
-                crate::editor::NoteDuration::Eighth => self.current_sample_count += 2.,
-                crate::editor::NoteDuration::Sixteenth => self.current_sample_count += 4.,
+                NoteDuration::Whole=> self.current_sample_count += 0.25,
+                NoteDuration::Half => self.current_sample_count += 0.5,
+                NoteDuration::Quarter => self.current_sample_count += 1.,
+                NoteDuration::Eighth => self.current_sample_count += 2.,
+                NoteDuration::Sixteenth => self.current_sample_count += 4.,
             }
             if self.current_sample_count as u32 >= self.samples_per_beat {
                 self.current_sample_count = 0.;

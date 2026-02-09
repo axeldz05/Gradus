@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self, Sender}, thread};
-use pitch_detection::detector::{PitchDetector, mcleod::McLeodDetector, yin::YINDetector};
+use pitch_detection::detector::{PitchDetector, mcleod::McLeodDetector};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 #[derive(Debug)]

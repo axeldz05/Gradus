@@ -103,8 +103,4 @@ impl Measure {
         let n2_end = n2.start_pos + n2.duration as u32;
         n1.start_pos < n2_end && n2.start_pos < n1_end
     }
-
-    pub fn get_current_sample_count_quarter_based(){
-
-    }
 }

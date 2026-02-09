@@ -1,9 +1,13 @@
 use gtk::prelude::*;
-use gtk::DrawingArea;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, RelmWidgetExt};
 use gradus_core::editor::{Measure, EditorNote, NoteDuration, NoteAccent};
 use gradus_core::metronome::{MetronomeCmd};
 use std::sync::mpsc::Sender;
+
+#[derive(Debug)]
+pub enum MeasureEditorOutput {
+    MeasureChanged(Measure)
+}
 
 pub struct MeasureEditorModel {
     measure: Measure,
@@ -18,7 +22,7 @@ pub struct MeasureEditorModel {
 #[derive(Debug)]
 pub enum MeasureEditorMsg {
     SetTool(NoteDuration, NoteAccent),
-    CanvasClick { x: f64, y: f64, button: u32 },
+    CanvasClick { x: f64, y: f64, button: u32, width: f32 },
     ChangeSignature { upper: u32, lower: u32 },
     ClearError,
 }
@@ -27,7 +31,7 @@ pub enum MeasureEditorMsg {
 impl SimpleComponent for MeasureEditorModel {
     type Init = Sender<MetronomeCmd>;
     type Input = MeasureEditorMsg;
-    type Output = ();
+    type Output = MeasureEditorOutput;
 
     view! {
         gtk::Box {
@@ -60,13 +64,16 @@ impl SimpleComponent for MeasureEditorModel {
             gtk::DrawingArea {
                 set_content_height: model.editor_height,
                 set_content_width: model.editor_width,
-                set_hexpand: true,
+                set_hexpand: false,
                 set_vexpand: false,
+                set_halign: gtk::Align::Center,
                 add_controller = gtk::GestureClick {
                     set_button: 0, // 0 = listen to all buttons (left and right)
                     connect_pressed[sender] => move |gesture, _, x, y| {
                         let button = gesture.current_button();
-                        sender.input(MeasureEditorMsg::CanvasClick { x, y, button });
+                        let widget = gesture.widget().expect("Gesture must be tied to a widget");
+                        let width = widget.width() as f32;
+                        sender.input(MeasureEditorMsg::CanvasClick { x, y, button, width});
                     }
                 },
 
@@ -140,45 +147,42 @@ impl SimpleComponent for MeasureEditorModel {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             MeasureEditorMsg::SetTool(dur, acc) => {
                 self.selected_duration = dur;
                 self.selected_accent = acc;
             }
             
-            MeasureEditorMsg::CanvasClick { x, y, button } => {
+            MeasureEditorMsg::CanvasClick { x, y, button, width } => {
                 if button == 1 {
                     println!("CanvasClick. X: {}, Y: {}, button: {}", x, y, button);
                     let total_ticks = self.measure.total_ticks();
-                    let tick_width = self.editor_width as f64 / total_ticks as f64;
+                    let tick_width = width as f64 / total_ticks as f64;
                     println!("total_ticks: {}, tick_width: {}", total_ticks, tick_width);
-                    for i in 1..=total_ticks {
-                        let max_width = i as f64 * tick_width;
-                        let min_width = (i-1) as f64 * tick_width;
-                        if x >= min_width && x < max_width{
-                            println!("at position: {}", i-1);
-                            let res = self.measure.try_add_note(EditorNote{
-                                start_pos: i-1, 
-                                duration: self.selected_duration, 
-                                accent: self.selected_accent});
-                            match res {
-                                Err(error) => {
-                                    println!("try_add_note result: {}", error)
-                                },
-                                Ok(_) => ()
-                            }
+                    let clicked_index = (x / tick_width).floor() as u32;
+                    if clicked_index < total_ticks {
+                        println!("at position: {}", clicked_index);
+                        let res = self.measure.try_add_note(EditorNote{
+                            start_pos: clicked_index, 
+                            duration: self.selected_duration, 
+                            accent: self.selected_accent});
+                        match res {
+                            Err(error) => {
+                                println!("try_add_note result: {}", error)
+                            },
+                            Ok(_) => ()
                         }
                     }
-                    self.sync_audio();
+                    self.sync_audio(&sender);
                 } else if button == 3 {
-                    self.sync_audio();
+                    self.sync_audio(&sender);
                 }
             }
 
             MeasureEditorMsg::ChangeSignature { upper, lower } => {
                 self.measure = Measure::new(upper, lower);
-                self.sync_audio();
+                self.sync_audio(&sender);
             }
             
             MeasureEditorMsg::ClearError => self.error_msg = None,
@@ -187,8 +191,17 @@ impl SimpleComponent for MeasureEditorModel {
 }
 
 impl MeasureEditorModel {
-    fn sync_audio(&self) {
-        let _ = self.audio_sender.send(MetronomeCmd::SetMeasure(self.measure.clone()));
+    fn sync_audio(&self, sender: &ComponentSender<MeasureEditorModel>) {
+        let res = self.audio_sender.send(MetronomeCmd::SetMeasure(self.measure.clone()));
+        match res {
+            Ok(_) => (),
+            Err(e) => println!("Error while setting measure in metronome Synth: {}", e)
+        }
+        let res = sender.output(MeasureEditorOutput::MeasureChanged(self.measure.clone()));
+        match res {
+            Ok(_) => (),
+            Err(e) => println!("Error while setting measure in metronome UI: {:?}", e)
+        }
     }
 }
 

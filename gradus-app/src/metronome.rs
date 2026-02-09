@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent, ComponentController};
 use gradus_core::{editor::{NoteAccent, Measure}, metronome::{Metronome, MetronomeCmd}};
 
-use crate::measure_editor::{MeasureEditorModel};
+use crate::measure_editor::{MeasureEditorModel, MeasureEditorOutput};
 
 pub struct MetronomeModel {
     active: bool,
@@ -21,7 +21,7 @@ pub struct MetronomeModel {
 pub enum MetronomeMsg {
     ToggleActive,
     TickReceived(usize),
-    AddNoteAtCursor(f32, usize),
+    SetMeasure(Measure),
     ToggleMeasureEditor
 }
 
@@ -38,7 +38,7 @@ impl SimpleComponent for MetronomeModel {
             set_valign: gtk::Align::Center,
             gtk::Label {
                 #[watch]
-                // set_label: &format!("Beat: {}. Time signature: {}/{}", &model.current_step, &model.notes_in_a_measure,&model.note_type),
+                set_label: &format!("Beat: {:?}. Time signature: {}/{}", &model.current_beat_index, &model.measure.time_signature_upper, &model.measure.time_signature_lower),
                 set_css_classes: &["title-1"],
             },
             #[name = "beats_canvas"]
@@ -116,7 +116,9 @@ impl SimpleComponent for MetronomeModel {
 
         let measure_editor = MeasureEditorModel::builder()
             .launch(tx.clone())
-            .detach();
+            .forward(sender.input_sender(), |msg| match msg {
+                MeasureEditorOutput::MeasureChanged(measure) => MetronomeMsg::SetMeasure(measure)
+            });
 
         let model = MetronomeModel {
             active:  false,
@@ -146,23 +148,8 @@ impl SimpleComponent for MetronomeModel {
             MetronomeMsg::ToggleMeasureEditor => {
                 self.measure_editor_active = !self.measure_editor_active;
             },
-            MetronomeMsg::AddNoteAtCursor(cursor_x, note_type) => {
-            //     let tick = self.pixels_to_tick(cursor_x);
-            //     let note = EditorNote { 
-            //         start_pos: tick, 
-            //         duration: note_type, 
-            //         accent: gradus_core::editor::NoteAccent::Strong 
-            //     };
-
-            //     match self.measure.try_add_note(note) {
-            //         Ok(_) => {
-            //             let pattern = self.measure.to_rhythm_pattern();
-            //             self.audio_sender.send(MetronomeCmd::UpdatePattern(pattern));
-            //         },
-            //         Err(e) => {
-            //             println!("Validation error: {}", e);
-            //         }
-            //     }
+            MetronomeMsg::SetMeasure(measure) => {
+                self.measure = measure;
             },
         }
     }

@@ -1,6 +1,5 @@
 use gtk::prelude::*;
-use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent};
-use gtk::*;
+use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use gradus_core::note_detector::NoteDetector;
 use std::thread;
 use std::sync::mpsc;
