@@ -1,18 +1,16 @@
 use gtk::prelude::*;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, RelmWidgetExt};
-use gradus_core::editor::{Measure, EditorNote, NoteDuration, NoteAccent};
+use gradus_core::editor::{Bar, BeatAccent};
 use gradus_core::metronome::{MetronomeCmd};
 use std::sync::mpsc::Sender;
 
 #[derive(Debug)]
-pub enum MeasureEditorOutput {
-    MeasureChanged(Measure)
+pub enum BarEditorOutput {
+    BarChanged(Bar)
 }
 
-pub struct MeasureEditorModel {
-    measure: Measure,
-    selected_duration: NoteDuration,
-    selected_accent: NoteAccent,
+pub struct BarEditorModel {
+    bar: Bar,
     audio_sender: Sender<MetronomeCmd>,
     error_msg: Option<String>,
     editor_width: i32,
@@ -20,18 +18,17 @@ pub struct MeasureEditorModel {
 }
 
 #[derive(Debug)]
-pub enum MeasureEditorMsg {
-    SetTool(NoteDuration, NoteAccent),
+pub enum BarEditorMsg {
     CanvasClick { x: f64, y: f64, button: u32, width: f32 },
     ChangeSignature { upper: u32, lower: u32 },
     ClearError,
 }
 
 #[relm4::component(pub)]
-impl SimpleComponent for MeasureEditorModel {
+impl SimpleComponent for BarEditorModel {
     type Init = Sender<MetronomeCmd>;
-    type Input = MeasureEditorMsg;
-    type Output = MeasureEditorOutput;
+    type Input = BarEditorMsg;
+    type Output = BarEditorOutput;
 
     view! {
         gtk::Box {
@@ -46,18 +43,6 @@ impl SimpleComponent for MeasureEditorModel {
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 5,
-                gtk::Button {
-                    set_label: "Quarter note (Strong)",
-                    connect_clicked => MeasureEditorMsg::SetTool(NoteDuration::Quarter, NoteAccent::Strong),
-                },
-                gtk::Button {
-                    set_label: "Eighth note (Normal)",
-                    connect_clicked => MeasureEditorMsg::SetTool(NoteDuration::Eighth, NoteAccent::Weak),
-                },
-                gtk::Button {
-                    set_label: "Sixteenth note",
-                    connect_clicked => MeasureEditorMsg::SetTool(NoteDuration::Sixteenth, NoteAccent::Weak),
-                },
             },
 
             #[name = "editor_canvas"]
@@ -73,14 +58,14 @@ impl SimpleComponent for MeasureEditorModel {
                         let button = gesture.current_button();
                         let widget = gesture.widget().expect("Gesture must be tied to a widget");
                         let width = widget.width() as f32;
-                        sender.input(MeasureEditorMsg::CanvasClick { x, y, button, width});
+                        sender.input(BarEditorMsg::CanvasClick { x, y, button, width});
                     }
                 },
 
                 #[watch]
                 set_draw_func: {
-                    let measure = model.measure.clone();
-                    let total_ticks = measure.total_ticks();
+                    let bar = model.bar.clone();
+                    let total_ticks = bar.total_ticks();
 
                     move |_, context, w, h| {
                         let tick_width = w as f64 / total_ticks as f64;
@@ -95,26 +80,24 @@ impl SimpleComponent for MeasureEditorModel {
                         }
                         context.stroke().expect("Stroke failed");
 
-                        for i in 0..measure.notes.len() {
+                        for i in 0..bar.beats.len() {
                             let x = i as f64 * tick_width;
-                            if let Some(note) = measure.notes[i]{
-                                let width = note.duration as u32 as f64 * tick_width;
-                                let (r, g, b) = match note.accent {
-                                    NoteAccent::Strong => (0.8, 0.2, 0.2),
-                                    NoteAccent::SoftStrong => (0.55, 0.2, 0.2),
-                                    NoteAccent::Weak => (0.2, 0.4, 0.8),
-                                    NoteAccent::Mute => (0.5, 0.5, 0.5),
+                            if let Some(note) = bar.beats[i]{
+                                let (r, g, b) = match note {
+                                    BeatAccent::Strong => (0.8, 0.2, 0.2),
+                                    BeatAccent::SoftStrong => (0.55, 0.2, 0.2),
+                                    BeatAccent::Weak => (0.2, 0.4, 0.8),
                                 };
 
                             // body of the note
                             context.set_source_rgb(r, g, b);
-                            context.rectangle(x + 1.0, 10.0, width - 2.0, h as f64 - 20.0);
+                            context.rectangle(x + 1.0, 10.0, tick_width - 2.0, h as f64 - 20.0);
                             context.fill().expect("Fill note failed");
 
                             // border
                             context.set_source_rgb(0.0, 0.0, 0.0);
                             context.set_line_width(2.0);
-                            context.rectangle(x + 1.0, 10.0, width - 2.0, h as f64 - 20.0);
+                            context.rectangle(x + 1.0, 10.0, tick_width - 2.0, h as f64 - 20.0);
                             context.stroke().expect("Stroke note failed");
                             }
                         }
@@ -134,10 +117,8 @@ impl SimpleComponent for MeasureEditorModel {
     }
 
     fn init(audio_sender: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        let model = MeasureEditorModel {
-            measure: Measure::new(4, 4),
-            selected_duration: NoteDuration::Quarter,
-            selected_accent: NoteAccent::Strong,
+        let model = BarEditorModel {
+            bar: Bar::new(4, 4),
             audio_sender,
             error_msg: None,
             editor_width: 400,
@@ -150,35 +131,28 @@ impl SimpleComponent for MeasureEditorModel {
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
-            MeasureEditorMsg::SetTool(dur, acc) => {
-                self.selected_duration = dur;
-                self.selected_accent = acc;
-            }
-            
-            MeasureEditorMsg::CanvasClick { x, y, button, width } => {
+            BarEditorMsg::CanvasClick { x, y, button, width } => {
                 println!("CanvasClick. X: {}, Y: {}, button: {}", x, y, button);
-                let total_ticks = self.measure.total_ticks() as usize;
+                let total_ticks = self.bar.total_ticks() as usize;
                 let tick_width = width as f64 / total_ticks as f64;
                 println!("total_ticks: {}, tick_width: {}", total_ticks, tick_width);
                 let clicked_index = (x / tick_width).floor() as usize;
                 if clicked_index < total_ticks {
                     println!("at position: {}", clicked_index);
                     if button == 1 {
-                        let res = self.measure.set_note(EditorNote{
-                            duration: self.selected_duration, 
-                            accent: self.selected_accent}, clicked_index);
+                        let res = self.bar.next_beat_accent(clicked_index);
                         match res {
                             Err(error) => {
-                                println!("set_note error: {}", error)
+                                println!("next_beat_accent error: {}", error)
                             },
                             Ok(_) => ()
                         }
                         self.sync_audio(&sender);
                     } else if button == 3 {
-                        let res = self.measure.remove_note(clicked_index);
+                        let res = self.bar.previous_beat_accent(clicked_index);
                         match res {
                             Err(error) => {
-                                println!("remove_note error: {}", error)
+                                println!("previous_beat_accent error: {}", error)
                             },
                             Ok(_) => ()
                         }
@@ -187,27 +161,27 @@ impl SimpleComponent for MeasureEditorModel {
                 }
             }
 
-            MeasureEditorMsg::ChangeSignature { upper, lower } => {
-                self.measure = Measure::new(upper, lower);
+            BarEditorMsg::ChangeSignature { upper, lower } => {
+                self.bar = Bar::new(upper, lower);
                 self.sync_audio(&sender);
             }
             
-            MeasureEditorMsg::ClearError => self.error_msg = None,
+            BarEditorMsg::ClearError => self.error_msg = None,
         }
     }
 }
 
-impl MeasureEditorModel {
-    fn sync_audio(&self, sender: &ComponentSender<MeasureEditorModel>) {
-        let res = self.audio_sender.send(MetronomeCmd::SetMeasure(self.measure.clone()));
+impl BarEditorModel {
+    fn sync_audio(&self, sender: &ComponentSender<BarEditorModel>) {
+        let res = self.audio_sender.send(MetronomeCmd::SetMeasure(self.bar.clone()));
         match res {
             Ok(_) => (),
-            Err(e) => println!("Error while setting measure in metronome Synth: {}", e)
+            Err(e) => println!("Error while setting bar in metronome Synth: {}", e)
         }
-        let res = sender.output(MeasureEditorOutput::MeasureChanged(self.measure.clone()));
+        let res = sender.output(BarEditorOutput::BarChanged(self.bar.clone()));
         match res {
             Ok(_) => (),
-            Err(e) => println!("Error while setting measure in metronome UI: {:?}", e)
+            Err(e) => println!("Error while setting bar in metronome UI: {:?}", e)
         }
     }
 }

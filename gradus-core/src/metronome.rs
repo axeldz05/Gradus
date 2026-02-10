@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
-use crate::editor::Measure;
+use crate::editor::Bar;
 
 pub struct MetronomeSynth {
     pub is_playing: bool,
@@ -12,13 +12,13 @@ pub struct MetronomeSynth {
     samples_per_beat: u32,
     current_sample_count: u32,
     beep_duration: u32,
-    measure: Measure,
+    measure: Bar,
     current_rhythm_index: usize,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 impl MetronomeSynth {
-    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, measure: Measure, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
+    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, measure: Bar, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
         Self {
             sample_rate,
             frequency: 1000.0,
@@ -34,7 +34,7 @@ impl MetronomeSynth {
         }
     }
 
-    pub fn set_measure(&mut self, new_measure: Measure) {
+    pub fn set_measure(&mut self, new_measure: Bar) {
         self.measure = new_measure;
         self.current_rhythm_index = 0; 
         self.current_sample_count = 0;
@@ -67,13 +67,13 @@ impl MetronomeSynth {
             if self.current_sample_count as u32 >= self.samples_per_beat {
                 self.current_sample_count = 0;
                 self.current_rhythm_index += 1;
-                if self.current_rhythm_index >= self.measure.notes.len() {
+                if self.current_rhythm_index >= self.measure.beats.len() {
                     self.current_rhythm_index = 0;
                 }
-                if let Some(step_type) = self.measure.notes.get(self.current_rhythm_index) {
+                if let Some(step_type) = self.measure.beats.get(self.current_rhythm_index) {
                     match step_type{
                         Some(note) => {
-                            let volume_factor = note.accent.to_volume();
+                            let volume_factor = note.to_volume();
                             self.volume = self.master_volume * volume_factor;
                         },
                         None => self.volume = 0.,
@@ -90,13 +90,13 @@ impl MetronomeSynth {
 #[derive(Debug)]
 pub struct Metronome{
     pub is_playing: bool,
-    measure: Measure,
+    measure: Bar,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 pub enum MetronomeCmd {
     SetBPM(u32),
-    SetMeasure(Measure),
+    SetMeasure(Bar),
     Play,
     Stop,
 }
@@ -106,7 +106,7 @@ pub enum MetronomeEvent {
 }
 
 impl Metronome{
-    pub fn new(measure: Measure, sender: Sender<MetronomeEvent>) -> Self {
+    pub fn new(measure: Bar, sender: Sender<MetronomeEvent>) -> Self {
         Self {
             is_playing: false,
             measure,

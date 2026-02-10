@@ -2,17 +2,17 @@ use std::sync::mpsc;
 
 use gtk::prelude::*;
 use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent, ComponentController};
-use gradus_core::{editor::{NoteAccent, Measure}, metronome::{Metronome, MetronomeCmd}};
+use gradus_core::{editor::{BeatAccent, Bar}, metronome::{Metronome, MetronomeCmd}};
 
-use crate::measure_editor::{MeasureEditorModel, MeasureEditorOutput};
+use crate::bar_editor::{BarEditorModel, BarEditorOutput};
 
 pub struct MetronomeModel {
     active: bool,
     engine_sender: std::sync::mpsc::Sender<MetronomeCmd>, 
     current_beat_index: Option<usize>,
-    measure: Measure,
-    measure_editor: relm4::Controller<MeasureEditorModel>,
-    measure_editor_active: bool,
+    bar: Bar,
+    bar_editor: relm4::Controller<BarEditorModel>,
+    bar_editor_active: bool,
     #[allow(dead_code)]
     _stream: Option<cpal::Stream>,
 }
@@ -21,7 +21,7 @@ pub struct MetronomeModel {
 pub enum MetronomeMsg {
     ToggleActive,
     TickReceived(usize),
-    SetMeasure(Measure),
+    SetBar(Bar),
     ToggleMeasureEditor
 }
 
@@ -38,7 +38,7 @@ impl SimpleComponent for MetronomeModel {
             set_valign: gtk::Align::Center,
             gtk::Label {
                 #[watch]
-                set_label: &format!("Beat: {:?}. Time signature: {}/{}", &model.current_beat_index, &model.measure.time_signature_upper, &model.measure.time_signature_lower),
+                set_label: &format!("Beat: {:?}. Time signature: {}/{}", &model.current_beat_index, &model.bar.time_signature_upper, &model.bar.time_signature_lower),
                 set_css_classes: &["title-1"],
             },
             #[name = "beats_canvas"]
@@ -47,19 +47,19 @@ impl SimpleComponent for MetronomeModel {
                 set_content_width: 300,
                 #[watch]
                 set_draw_func: {
-                    let pattern = model.measure.clone();
+                    let pattern = model.bar.clone();
                     let current_index = model.current_beat_index;
                     move |_, context, w, h| {
-                        let step_count = pattern.notes.len();
+                        let step_count = pattern.beats.len();
                         let padding = 10.0;
                         let box_size = (w as f64 - (padding * (step_count as f64 - 1.0))) / step_count as f64;
-                        for (i, step) in pattern.notes.iter().enumerate() {
+                        for (i, step) in pattern.beats.iter().enumerate() {
                             let x = i as f64 * (box_size + padding);
                             let y = (h as f64 - box_size) / 2.0;
                             if let Some(current_step) = step{
-                                let (r, g, b) = match current_step.accent {
-                                    NoteAccent::Strong => (0.9, 0.3, 0.3),
-                                    NoteAccent::Weak => (0.3, 0.3, 0.9),
+                                let (r, g, b) = match current_step {
+                                    BeatAccent::Strong => (0.9, 0.3, 0.3),
+                                    BeatAccent::Weak => (0.3, 0.3, 0.9),
                                     _ => (0.5, 0.5, 0.5),
                                 };
                                 let is_active = Some(i) == current_index;
@@ -83,15 +83,15 @@ impl SimpleComponent for MetronomeModel {
             },
             #[name = "editor"]
             gtk::Expander {
-                set_label: match model.measure_editor_active {
+                set_label: match model.bar_editor_active {
                     true => Some("Close Editor"),
                     false => Some("Edit Pattern"),
                 },
-                set_expanded: model.measure_editor_active,
+                set_expanded: model.bar_editor_active,
                 connect_expanded_notify[sender] => move |_expander| {
                     sender.input(MetronomeMsg::ToggleMeasureEditor);
                 },
-                set_child: Some(model.measure_editor.widget()),
+                set_child: Some(model.bar_editor.widget()),
             },
             gtk::Button{
                connect_clicked => MetronomeMsg::ToggleActive,
@@ -103,7 +103,7 @@ impl SimpleComponent for MetronomeModel {
     fn init(_: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let (tx, rx) = mpsc::channel::<MetronomeCmd>();
         let (event_tx, event_rx) = mpsc::channel();
-        let metronome = Metronome::new(Measure::default_from_signature(), event_tx);
+        let metronome = Metronome::new(Bar::default_from_signature(), event_tx);
         let stream = metronome.run(rx);
         let sender_clone = sender.clone();
         std::thread::spawn(move || {
@@ -116,19 +116,19 @@ impl SimpleComponent for MetronomeModel {
             }
         });
 
-        let measure_editor = MeasureEditorModel::builder()
+        let bar_editor = BarEditorModel::builder()
             .launch(tx.clone())
             .forward(sender.input_sender(), |msg| match msg {
-                MeasureEditorOutput::MeasureChanged(measure) => MetronomeMsg::SetMeasure(measure)
+                BarEditorOutput::BarChanged(bar) => MetronomeMsg::SetBar(bar)
             });
 
         let model = MetronomeModel {
             active:  false,
             engine_sender: tx,
-            measure: Measure::default_from_signature(),
+            bar: Bar::default_from_signature(),
             current_beat_index: Some(0),
-            measure_editor,
-            measure_editor_active: false,
+            bar_editor,
+            bar_editor_active: false,
             _stream: Some(stream)
         };
 
@@ -148,10 +148,10 @@ impl SimpleComponent for MetronomeModel {
                 self.current_beat_index = Some(idx);
             },
             MetronomeMsg::ToggleMeasureEditor => {
-                self.measure_editor_active = !self.measure_editor_active;
+                self.bar_editor_active = !self.bar_editor_active;
             },
-            MetronomeMsg::SetMeasure(measure) => {
-                self.measure = measure;
+            MetronomeMsg::SetBar(bar) => {
+                self.bar = bar;
             },
         }
     }

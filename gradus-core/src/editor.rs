@@ -1,72 +1,46 @@
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum NoteDuration {
-    Whole = 16,
-    Half = 8,
-    Quarter = 4,
-    Eighth = 2,
-    Sixteenth = 1,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum NoteAccent {
+pub enum BeatAccent {
     Strong,
     SoftStrong,
     Weak,
-    Mute,
 }
 
-impl NoteAccent {
+impl BeatAccent {
     pub fn to_volume(&self) -> f32 {
         match self {
-            NoteAccent::Strong => 1.0,
-            NoteAccent::SoftStrong => 0.65,
-            NoteAccent::Weak => 0.4,
-            NoteAccent::Mute => 0.0,
+            BeatAccent::Strong => 1.0,
+            BeatAccent::SoftStrong => 0.65,
+            BeatAccent::Weak => 0.4,
         }
     }
 }
 
-
-#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
-pub struct EditorNote {
-    pub duration: NoteDuration,
-    pub accent: NoteAccent,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Measure {
+pub struct Bar {
     pub time_signature_upper: u32,
     pub time_signature_lower: u32,
-    pub notes: Vec<Option<EditorNote>>,
+    pub beats: Vec<Option<BeatAccent>>,
 }
 
-impl Measure {
+impl Bar {
     pub fn default_from_signature() -> Self {
         Self { time_signature_upper: 4, 
             time_signature_lower: 4, 
-            notes: vec![Some(EditorNote {
-                duration: NoteDuration::Quarter,
-                accent: NoteAccent::Strong }), 
+            beats: vec![Some(BeatAccent::Strong), 
             None,
             None,
             None,
-            Some(EditorNote {
-                duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak }),
+            Some(BeatAccent::Weak),
             None,
             None,
             None,
-            Some(EditorNote {
-                duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak }),
+            Some(BeatAccent::Weak),
             None,
             None,
             None,
-            Some(EditorNote {
-                duration: NoteDuration::Quarter,
-                accent: NoteAccent::Weak }),
+            Some(BeatAccent::Weak),
             None,
             None,
             None,
@@ -78,44 +52,42 @@ impl Measure {
         Self {
             time_signature_upper: upper,
             time_signature_lower: lower,
-            notes: vec![None; ticks as usize]
+            beats: vec![None; ticks as usize]
         }
     }
 
-    pub fn set_note(&mut self, new_note: EditorNote, at_pos: usize) -> Result<(), String> {
-        if at_pos >= self.notes.len() {
+    pub fn next_beat_accent(&mut self, at_pos: usize) -> Result<(), String> {
+        if at_pos >= self.beats.len() {
             return Err(format!("Position {} out of bounds", at_pos));
         }
-        if self.is_overlapping(&new_note, at_pos){
-            return Err(format!("Overlap detected with note at pos {}", at_pos));
+        match &mut self.beats[at_pos] {
+            Some(beat) => self.beats[at_pos] = match beat {
+                BeatAccent::Strong => None,
+                BeatAccent::SoftStrong => Some(BeatAccent::Strong),
+                BeatAccent::Weak => Some(BeatAccent::SoftStrong),
+            },
+            None => self.beats[at_pos] = Some(BeatAccent::Weak),
         }
-        self.notes[at_pos] = Some(new_note);
         Ok(())
     }
 
-    pub fn remove_note(&mut self, at_pos: usize) -> Result<(), String> {
-        if at_pos >= self.notes.len() {
+    pub fn previous_beat_accent(&mut self, at_pos: usize) -> Result<(), String> {
+        if at_pos >= self.beats.len() {
             return Err(format!("Position {} out of bounds", at_pos));
         }
-        self.notes[at_pos] = None;
+        match &mut self.beats[at_pos] {
+            Some(beat) => self.beats[at_pos] = match beat {
+                BeatAccent::Strong => Some(BeatAccent::SoftStrong),
+                BeatAccent::SoftStrong => Some(BeatAccent::Weak),
+                BeatAccent::Weak => None,
+            },
+            None => self.beats[at_pos] = Some(BeatAccent::Strong),
+        }
         Ok(())
     }
     
     pub fn total_ticks(&self) -> u32 {
-        // Assumes base resolution of sixteenth note (1/16)
+        // Assumes base resolution of sixteenth beat (1/16)
         (self.time_signature_upper * 16) / self.time_signature_lower
-    }
-    
-    pub fn is_overlapping(&self, new_note: &EditorNote, new_note_pos: usize) -> bool {
-        for (i, slot) in self.notes.iter().enumerate() {
-            if let Some(existing_note) = slot {
-                let n1_end = i + existing_note.duration as usize;
-                let n2_end = new_note_pos + new_note.duration as usize;
-                if i < n2_end && new_note_pos < n1_end {
-                    return true
-                }
-            }
-        }
-        false
     }
 }
