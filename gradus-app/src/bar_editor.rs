@@ -118,7 +118,7 @@ impl SimpleComponent for BarEditorModel {
 
     fn init(audio_sender: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let model = BarEditorModel {
-            bar: Bar::new(4, 4),
+            bar: Bar::default_from_signature(),
             audio_sender,
             error_msg: None,
             editor_width: 400,
