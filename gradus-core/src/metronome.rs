@@ -36,8 +36,6 @@ impl MetronomeSynth {
 
     pub fn set_measure(&mut self, new_measure: Bar) {
         self.measure = new_measure;
-        self.current_rhythm_index = 0; 
-        self.current_sample_count = 0;
     }
 
     pub fn set_bpm(&mut self, bpm: u32) {
