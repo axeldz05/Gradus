@@ -470,6 +470,7 @@ name = "gradus-app"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "glib",
  "gradus-core",
  "gtk4",
  "relm4",
