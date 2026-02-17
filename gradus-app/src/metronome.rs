@@ -2,7 +2,7 @@ use std::{f64::consts::PI, sync::mpsc, time::Instant};
 
 use gtk::prelude::*;
 use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent, ComponentController};
-use gradus_core::{editor::{BeatAccent, Bar}, metronome::{Metronome, MetronomeCmd}};
+use gradus_core::{beat::BeatAccent, metronome::{Metronome, MetronomeCmd}};
 
 use crate::bar_editor::{BarEditorModel, BarEditorOutput};
 
@@ -20,7 +20,7 @@ pub struct MetronomeModel {
     active: bool,
     engine_sender: std::sync::mpsc::Sender<MetronomeCmd>, 
     current_beat_index: Option<usize>,
-    bar: Bar,
+    bar: Vec<Option<BeatAccent>>,
     bar_editor: relm4::Controller<BarEditorModel>,
     bar_editor_active: bool,
     #[allow(dead_code)]
@@ -36,7 +36,7 @@ pub struct MetronomeModel {
 pub enum MetronomeMsg {
     ToggleActive,
     TickReceived(usize),
-    SetBar(Bar),
+    SetBar(Vec<Option<BeatAccent>>),
     ToggleMeasureEditor,
     AnimationTick(Instant),
     UpdateBpm(u32)
@@ -167,10 +167,10 @@ impl SimpleComponent for MetronomeModel {
                     let pattern = model.bar.clone();
                     let current_index = model.current_beat_index;
                     move |_, context, w, h| {
-                        let step_count = pattern.beats.len();
+                        let step_count = pattern.len();
                         let padding = 10.0;
                         let box_size = (w as f64 - (padding * (step_count as f64 - 1.0))) / step_count as f64;
-                        for (i, step) in pattern.beats.iter().enumerate() {
+                        for (i, step) in pattern.iter().enumerate() {
                             let x = i as f64 * (box_size + padding);
                             let y = (h as f64 - box_size) / 2.0;
                             if let Some(current_step) = step{
@@ -220,8 +220,25 @@ impl SimpleComponent for MetronomeModel {
     fn init(_: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
         let (tx, rx) = mpsc::channel::<MetronomeCmd>();
         let (event_tx, event_rx) = mpsc::channel();
-        let metronome = Metronome::new(Bar::default_from_signature(), event_tx);
-        let stream = metronome.run(rx);
+        let metronome = Metronome::new(event_tx);
+        let bar = vec![Some(BeatAccent::Strong), 
+            None,
+            None,
+            None,
+            Some(BeatAccent::Weak),
+            None,
+            None,
+            None,
+            Some(BeatAccent::Weak),
+            None,
+            None,
+            None,
+            Some(BeatAccent::Weak),
+            None,
+            None,
+            None,
+            ]; 
+        let stream = metronome.run(bar.clone(), rx);
         let sender_clone = sender.clone();
         std::thread::spawn(move || {
             while let Ok(event) = event_rx.recv() {
@@ -242,7 +259,7 @@ impl SimpleComponent for MetronomeModel {
         let model = MetronomeModel {
             active:  false,
             engine_sender: tx,
-            bar: Bar::default_from_signature(),
+            bar: bar,
             current_beat_index: Some(0),
             bar_editor,
             bar_editor_active: false,

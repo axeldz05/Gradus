@@ -1,7 +1,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::{f32::consts::PI, sync::mpsc::{Receiver, Sender}};
 
-use crate::editor::Bar;
+use crate::beat::BeatAccent;
 
 pub struct MetronomeSynth {
     pub is_playing: bool,
@@ -12,13 +12,13 @@ pub struct MetronomeSynth {
     samples_per_beat: u32,
     current_sample_count: u32,
     beep_duration: u32,
-    measure: Bar,
+    bar: Vec<Option<BeatAccent>>,
     current_rhythm_index: usize,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 impl MetronomeSynth {
-    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, measure: Bar, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
+    pub fn new(sample_rate: f32, bpm: u32, master_volume: f32, bar: Vec<Option<BeatAccent>>, event_sender: Option<Sender<MetronomeEvent>>) -> Self {
         Self {
             sample_rate,
             frequency: 1000.0,
@@ -28,14 +28,14 @@ impl MetronomeSynth {
             current_sample_count: 0,
             beep_duration: (sample_rate * 0.1) as u32, 
             is_playing: false,
-            measure: measure,
+            bar: bar,
             current_rhythm_index: 0,
             event_sender,
         }
     }
 
-    pub fn set_measure(&mut self, new_measure: Bar) {
-        self.measure = new_measure;
+    pub fn set_bar(&mut self, new_bar: Vec<Option<BeatAccent>>) {
+        self.bar = new_bar;
     }
 
     pub fn set_bpm(&mut self, bpm: u32) {
@@ -65,10 +65,10 @@ impl MetronomeSynth {
             if self.current_sample_count as u32 >= self.samples_per_beat {
                 self.current_sample_count = 0;
                 self.current_rhythm_index += 1;
-                if self.current_rhythm_index >= self.measure.beats.len() {
+                if self.current_rhythm_index >= self.bar.len() {
                     self.current_rhythm_index = 0;
                 }
-                if let Some(step_type) = self.measure.beats.get(self.current_rhythm_index) {
+                if let Some(step_type) = self.bar.get(self.current_rhythm_index) {
                     match step_type{
                         Some(note) => {
                             let volume_factor = note.to_volume();
@@ -88,13 +88,13 @@ impl MetronomeSynth {
 #[derive(Debug)]
 pub struct Metronome{
     pub is_playing: bool,
-    measure: Bar,
     event_sender: Option<Sender<MetronomeEvent>>,
 }
 
 pub enum MetronomeCmd {
     SetBPM(u32),
-    SetMeasure(Bar),
+    SetBar(Vec<Option<BeatAccent>>),
+    SetAmountOfBeats(u32),
     Play,
     Stop,
 }
@@ -104,21 +104,20 @@ pub enum MetronomeEvent {
 }
 
 impl Metronome{
-    pub fn new(measure: Bar, sender: Sender<MetronomeEvent>) -> Self {
+    pub fn new(sender: Sender<MetronomeEvent>) -> Self {
         Self {
             is_playing: false,
-            measure,
             event_sender:  Some(sender),
         }
     }
 
-    pub fn run(self, cmd_receiver: Receiver<MetronomeCmd>) -> cpal::Stream {
+    pub fn run(self, bar: Vec<Option<BeatAccent>>, cmd_receiver: Receiver<MetronomeCmd>) -> cpal::Stream {
         let host = cpal::default_host();
         let device = host.default_output_device().expect("No output device");
         let config = device.default_output_config().unwrap();
         let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
-        let mut synth = MetronomeSynth::new(sample_rate as f32, 60, 0.5, self.measure, self.event_sender);
+        let mut synth = MetronomeSynth::new(sample_rate as f32, 60, 0.5, bar, self.event_sender);
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -126,12 +125,15 @@ impl Metronome{
                 while let Ok(cmd) = cmd_receiver.try_recv() {
                     match cmd {
                         MetronomeCmd::SetBPM(bpm) => synth.set_bpm(bpm),
-                        MetronomeCmd::SetMeasure(pattern) => synth.set_measure(pattern),
+                        MetronomeCmd::SetBar(pattern) => synth.set_bar(pattern),
                         MetronomeCmd::Play => synth.is_playing = true,
                         MetronomeCmd::Stop => {
                             synth.is_playing = false;
                             synth.current_sample_count = 0;
                         },
+                        MetronomeCmd::SetAmountOfBeats(amount_of_beats) => {
+                            //synth.set_amount_of_beats(amount_of_beats);
+                        }
                     }
                 }
                 synth.process(data, channels);

@@ -1,0 +1,23 @@
+.beat-btn {
+    border-radius: 4px;
+    padding: 0;
+    margin: 0;
+}
+
+.beat-none {
+    background: #3a3a3a;
+    color: transparent;
+}
+
+.beat-weak {
+    background: #4a90d9;
+}
+
+.beat-soft-strong {
+    background: #e05a5a;
+}
+
+.beat-strong {
+    background: #f0c040;
+    border: 2px solid white;
+}

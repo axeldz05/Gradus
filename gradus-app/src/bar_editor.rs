@@ -1,27 +1,28 @@
 use gtk::prelude::*;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, RelmWidgetExt};
-use gradus_core::editor::{Bar, BeatAccent};
+use relm4::factory::FactoryVecDeque;
+use gradus_core::beat::BeatAccent;
 use gradus_core::metronome::{MetronomeCmd};
 use std::sync::mpsc::Sender;
+use crate::factories::{BeatItem, BeatOutput};
 
 #[derive(Debug)]
 pub enum BarEditorOutput {
-    BarChanged(Bar)
+    BarChanged(Vec<Option<BeatAccent>>)
 }
 
 pub struct BarEditorModel {
-    bar: Bar,
+    beats: FactoryVecDeque<BeatItem>,
     audio_sender: Sender<MetronomeCmd>,
     error_msg: Option<String>,
-    editor_width: i32,
-    editor_height: i32
 }
 
 #[derive(Debug)]
 pub enum BarEditorMsg {
-    CanvasClick { x: f64, y: f64, button: u32, width: f32 },
+    BeatClicked,
     ChangeSignature { upper: u32, lower: u32 },
     ClearError,
+    SetAmountOfBeats(u32),
 }
 
 #[relm4::component(pub)]
@@ -36,73 +37,29 @@ impl SimpleComponent for BarEditorModel {
             set_spacing: 10,
             set_margin_all: 10,
             gtk::Label {
-                set_label: "Editor tools:",
+                set_label: "Beats:",
                 set_halign: gtk::Align::Start,
                 set_css_classes: &["title-4"],
             },
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 5,
-            },
-
-            #[name = "editor_canvas"]
-            gtk::DrawingArea {
-                set_content_height: model.editor_height,
-                set_content_width: model.editor_width,
-                set_hexpand: false,
-                set_vexpand: false,
-                set_halign: gtk::Align::Center,
-                add_controller = gtk::GestureClick {
-                    set_button: 0, // 0 = listen to all buttons (left and right)
-                    connect_pressed[sender] => move |gesture, _, x, y| {
-                        let button = gesture.current_button();
-                        let widget = gesture.widget().expect("Gesture must be tied to a widget");
-                        let width = widget.width() as f32;
-                        sender.input(BarEditorMsg::CanvasClick { x, y, button, width});
-                    }
-                },
-
-                #[watch]
-                set_draw_func: {
-                    let bar = model.bar.clone();
-                    let total_ticks = bar.total_ticks();
-
-                    move |_, context, w, h| {
-                        let tick_width = w as f64 / total_ticks as f64;
-                        context.set_source_rgb(0.9, 0.9, 0.9);
-                        context.paint().expect("Paint failed");
-                        context.set_source_rgb(0.7, 0.7, 0.7);
-                        context.set_line_width(1.0);
-                        for i in 0..=total_ticks{
-                            let x = i as f64 * tick_width;
-                            context.move_to(x, 0.0);
-                            context.line_to(x, h as f64);
-                        }
-                        context.stroke().expect("Stroke failed");
-
-                        for i in 0..bar.beats.len() {
-                            let x = i as f64 * tick_width;
-                            if let Some(note) = bar.beats[i]{
-                                let (r, g, b) = match note {
-                                    BeatAccent::Strong => (0.8, 0.2, 0.2),
-                                    BeatAccent::SoftStrong => (0.55, 0.2, 0.2),
-                                    BeatAccent::Weak => (0.2, 0.4, 0.8),
-                                };
-
-                            // body of the note
-                            context.set_source_rgb(r, g, b);
-                            context.rectangle(x + 1.0, 10.0, tick_width - 2.0, h as f64 - 20.0);
-                            context.fill().expect("Fill note failed");
-
-                            // border
-                            context.set_source_rgb(0.0, 0.0, 0.0);
-                            context.set_line_width(2.0);
-                            context.rectangle(x + 1.0, 10.0, tick_width - 2.0, h as f64 - 20.0);
-                            context.stroke().expect("Stroke note failed");
-                            }
-                        }
+            #[name = "entry_beats"]
+            gtk::Entry{
+                set_input_purpose: gtk::InputPurpose::Digits,
+                connect_activate[sender] => move |entry| {
+                    let text = entry.text();
+                    if let Ok(amount_of_beats) = text.parse::<u32>() {
+                        sender.input(BarEditorMsg::SetAmountOfBeats(amount_of_beats));
                     }
                 }
+            },
+            #[local_ref]
+            beat_flowbox -> gtk::FlowBox {
+                set_valign: gtk::Align::Start,
+                set_halign: gtk::Align::Fill,
+                set_selection_mode: gtk::SelectionMode::None,
+                set_min_children_per_line: 4,
+                set_max_children_per_line: 8,
+                set_row_spacing: 4,
+                set_column_spacing: 4,
             },
 
             #[name = "error_label"]
@@ -117,72 +74,91 @@ impl SimpleComponent for BarEditorModel {
     }
 
     fn init(audio_sender: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
+        let mut beats_factory = FactoryVecDeque::builder()
+            .launch(gtk::FlowBox::new())
+            .forward(sender.input_sender(), |output| match output {
+                BeatOutput::Clicked => BarEditorMsg::BeatClicked,
+            });
+        {
+            let mut guard = beats_factory.guard();
+            guard.push_back(Some(BeatAccent::Strong));
+            guard.push_back(None);
+            guard.push_back(None);
+            guard.push_back(None);
+            for _ in 1..4 {
+            guard.push_back(Some(BeatAccent::Weak));
+            guard.push_back(None);
+            guard.push_back(None);
+            guard.push_back(None);
+            }
+        }
         let model = BarEditorModel {
-            bar: Bar::default_from_signature(),
+            beats: beats_factory,
             audio_sender,
             error_msg: None,
-            editor_width: 400,
-            editor_height: 200
         };
 
+        let beat_flowbox = model.beats.widget();
+
         let widgets = view_output!();
+        widgets.entry_beats.set_text(&(model.beats.len()/4).to_string());
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
-            BarEditorMsg::CanvasClick { x, y, button, width } => {
-                println!("CanvasClick. X: {}, Y: {}, button: {}", x, y, button);
-                let total_ticks = self.bar.total_ticks() as usize;
-                let tick_width = width as f64 / total_ticks as f64;
-                println!("total_ticks: {}, tick_width: {}", total_ticks, tick_width);
-                let clicked_index = (x / tick_width).floor() as usize;
-                if clicked_index < total_ticks {
-                    println!("at position: {}", clicked_index);
-                    if button == 1 {
-                        let res = self.bar.next_beat_accent(clicked_index);
-                        match res {
-                            Err(error) => {
-                                println!("next_beat_accent error: {}", error)
-                            },
-                            Ok(_) => ()
-                        }
-                        self.sync_audio(&sender);
-                    } else if button == 3 {
-                        let res = self.bar.previous_beat_accent(clicked_index);
-                        match res {
-                            Err(error) => {
-                                println!("previous_beat_accent error: {}", error)
-                            },
-                            Ok(_) => ()
-                        }
-                        self.sync_audio(&sender);
-                    }
-                }
-            }
-
-            BarEditorMsg::ChangeSignature { upper, lower } => {
-                self.bar = Bar::new(upper, lower);
+            BarEditorMsg::BeatClicked => {
                 self.sync_audio(&sender);
-            }
-            
+            },
+            BarEditorMsg::ChangeSignature { upper, lower } => {
+                self.sync_audio(&sender);
+            },
             BarEditorMsg::ClearError => self.error_msg = None,
+            BarEditorMsg::SetAmountOfBeats(amount) => {
+                self.set_amount_of_beats(amount);
+                self.sync_audio(&sender);
+            },
         }
     }
 }
 
 impl BarEditorModel {
-    fn sync_audio(&self, sender: &ComponentSender<BarEditorModel>) {
-        let res = self.audio_sender.send(MetronomeCmd::SetMeasure(self.bar.clone()));
+    fn sync_audio(&mut self, sender: &ComponentSender<BarEditorModel>) {
+        let beat_items : Vec<Option<BeatAccent>> = self.beats.guard().iter().map(|item| item.state.into()).collect();
+        let res = self.audio_sender.send(MetronomeCmd::SetBar(beat_items.clone()));
         match res {
             Ok(_) => (),
             Err(e) => println!("Error while setting bar in metronome Synth: {}", e)
         }
-        let res = sender.output(BarEditorOutput::BarChanged(self.bar.clone()));
+        let res = sender.output(BarEditorOutput::BarChanged(beat_items));
         match res {
             Ok(_) => (),
             Err(e) => println!("Error while setting bar in metronome UI: {:?}", e)
         }
+    }
+
+    pub fn set_amount_of_beats(&mut self, amount_of_beats: u32) {
+        // this assumes self.beats to be divisible by 4
+        // this may become a problem if numbers are too big, which shouldn't be the case
+        let beat_diff = ((amount_of_beats*4) as i32 - self.beats.len() as i32)/4;
+        let mut guard = self.beats.guard();
+        println!("beat_diff: {}", beat_diff);
+        if beat_diff > 0 {
+            for _ in 0..beat_diff {
+                guard.push_back(Some(BeatAccent::SoftStrong));
+                guard.push_back(None);
+                guard.push_back(None);
+                guard.push_back(None);
+            }
+        } else if beat_diff < 0 {
+            for _ in 0..-beat_diff {
+                guard.pop_back();
+                guard.pop_back();
+                guard.pop_back();
+                guard.pop_back();
+            }
+        }
+        // todo!("Make beats based on whether it's a quarter, whole, etc.");
     }
 }
 

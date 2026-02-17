@@ -1,4 +1,6 @@
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller, RelmApp, RelmWidgetExt, SimpleComponent};
+use std::{fs, io, env};
+use std::path::Path;
 
 use gtk::prelude::*;
 use std::convert::identity;
@@ -122,7 +124,10 @@ impl SimpleComponent for AppModel {
     }
 }
 
-pub fn launch() {
+pub fn launch() -> std::io::Result<()>{
     let app = RelmApp::new("relm4.test.simple");
+    let content = fs::read_to_string("./gradus-app/src/styles.css")?;
+    relm4::set_global_css(&content);
     app.run::<AppModel>(AppMode::Tuner);
+    Ok(())
 }
