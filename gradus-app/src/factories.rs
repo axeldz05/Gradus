@@ -4,13 +4,16 @@ use gradus_core::beat::BeatAccent;
 
 #[derive(Debug)]
 pub struct BeatItem {
-    pub state: Option<BeatAccent>,
+    pub accent: Option<BeatAccent>,
+    has_ticked: bool,
 }
 
 #[derive(Debug)]
 pub enum BeatInput {
     NextAccent,
     PreviousAccent,
+    HasTicked,
+    EndTick,
 }
 #[derive(Debug)]
 pub enum BeatOutput {
@@ -19,24 +22,24 @@ pub enum BeatOutput {
 
 impl BeatItem {
     fn next_accent(&mut self){
-        match &mut self.state {
-            Some(beat) => self.state = match beat {
+        match &mut self.accent {
+            Some(beat) => self.accent = match beat {
                 BeatAccent::Strong => None,
                 BeatAccent::SoftStrong => Some(BeatAccent::Strong),
                 BeatAccent::Weak => Some(BeatAccent::SoftStrong),
             },
-            None => self.state = Some(BeatAccent::Weak),
+            None => self.accent = Some(BeatAccent::Weak),
         }
     }
 
     pub fn previous_accent(&mut self){
-        match &mut self.state {
-            Some(beat) => self.state = match beat {
+        match &mut self.accent {
+            Some(beat) => self.accent = match beat {
                 BeatAccent::Strong => Some(BeatAccent::SoftStrong),
                 BeatAccent::SoftStrong => Some(BeatAccent::Weak),
                 BeatAccent::Weak => None,
             },
-            None => self.state = Some(BeatAccent::Strong),
+            None => self.accent = Some(BeatAccent::Strong),
         }
     }
 }
@@ -56,12 +59,16 @@ impl FactoryComponent for BeatItem {
             set_height_request: 30,
             
             #[watch]
-            set_css_classes: match self.state {
-                Some(BeatAccent::Weak) => &["beat-btn", "beat-weak"],
-                Some(BeatAccent::SoftStrong) => &["beat-btn", "beat-soft-strong"],
-                Some(BeatAccent::Strong) => &["beat-btn", "beat-strong"],
-                None => &["beat-btn", "beat-none"],
-            },
+            set_css_classes: &[
+                "beat-btn",
+                match self.accent {
+                    Some(BeatAccent::Strong) => "beat-strong",
+                    Some(BeatAccent::SoftStrong) => "beat-soft-strong",
+                    Some(BeatAccent::Weak) => "beat-weak",
+                    _ => "beat-none",
+                },
+                if self.has_ticked { "beat-tick" } else { "" },
+            ],
             connect_clicked[sender] => move |_| {
                 sender.input(BeatInput::NextAccent);
                 sender.output(BeatOutput::Clicked);
@@ -78,7 +85,7 @@ impl FactoryComponent for BeatItem {
     }
 
     fn init_model(init: Self::Init, _index: &DynamicIndex, _sender: FactorySender<Self>) -> Self {
-        Self { state: init }
+        Self { accent: init, has_ticked: false }
     }
 
     fn update(&mut self, msg: Self::Input, _sender: FactorySender<Self>) {
@@ -88,6 +95,12 @@ impl FactoryComponent for BeatItem {
             },
             BeatInput::PreviousAccent => {
                 self.previous_accent();
+            }
+            BeatInput::HasTicked => {
+                self.has_ticked = true;
+            },
+            BeatInput::EndTick => {
+                self.has_ticked = false;
             }
         }
     }

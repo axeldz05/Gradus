@@ -19,5 +19,8 @@
 
 .beat-strong {
     background: #f0c040;
+}
+
+.beat-tick {
     border: 2px solid white;
 }

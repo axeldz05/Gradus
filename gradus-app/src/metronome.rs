@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use relm4::{Component, ComponentParts, ComponentSender, SimpleComponent, ComponentController};
 use gradus_core::{beat::BeatAccent, metronome::{Metronome, MetronomeCmd}};
 
-use crate::bar_editor::{BarEditorModel, BarEditorOutput};
+use crate::bar_editor::{BarEditorModel, BarEditorMsg, BarEditorOutput};
 
 const SWING_AMPLITUDE: f64 = PI / 4.0;
 const STOP_ANIMATION_DURATION: u64 = 300;
@@ -158,57 +158,9 @@ impl SimpleComponent for MetronomeModel {
                     }
                 }
             },
-            #[name = "beats_canvas"]
-            gtk::DrawingArea {
-                set_content_height: 50,
-                set_content_width: 300,
-                #[watch]
-                set_draw_func: {
-                    let pattern = model.bar.clone();
-                    let current_index = model.current_beat_index;
-                    move |_, context, w, h| {
-                        let step_count = pattern.len();
-                        let padding = 10.0;
-                        let box_size = (w as f64 - (padding * (step_count as f64 - 1.0))) / step_count as f64;
-                        for (i, step) in pattern.iter().enumerate() {
-                            let x = i as f64 * (box_size + padding);
-                            let y = (h as f64 - box_size) / 2.0;
-                            if let Some(current_step) = step{
-                                let (r, g, b) = match current_step {
-                                    BeatAccent::Strong => (0.9, 0.3, 0.3),
-                                    BeatAccent::Weak => (0.3, 0.3, 0.9),
-                                    _ => (0.5, 0.5, 0.5),
-                                };
-                                let is_active = Some(i) == current_index;
-                                if is_active {
-                                    context.set_source_rgb(r, g, b);
-                                    context.rectangle(x, y, box_size, box_size);
-                                    context.fill().expect("fill failed");
-                                    context.set_source_rgb(1.0, 1.0, 1.0);
-                                    context.set_line_width(2.0);
-                                    context.rectangle(x + 2.0, y + 2.0, box_size - 4.0, box_size - 4.0);
-                                    context.stroke().expect("stroke failed");
-                                } else {
-                                    context.set_source_rgba(r, g, b, 0.3);
-                                    context.rectangle(x, y, box_size, box_size);
-                                    context.fill().expect("fill dim failed");
-                                }
-                            }
-                        }
-                    }
-                }
-            },
             #[name = "editor"]
-            gtk::Expander {
-                set_label: match model.bar_editor_active {
-                    true => Some("Close Editor"),
-                    false => Some("Edit Pattern"),
-                },
-                set_expanded: model.bar_editor_active,
-                connect_expanded_notify[sender] => move |_expander| {
-                    sender.input(MetronomeMsg::ToggleMeasureEditor);
-                },
-                set_child: Some(model.bar_editor.widget()),
+            gtk::Box {
+                append: model.bar_editor.widget(),
             },
             gtk::Button{
                connect_clicked => MetronomeMsg::ToggleActive,
@@ -305,6 +257,9 @@ impl SimpleComponent for MetronomeModel {
             },
             MetronomeMsg::TickReceived(idx) => {
                 self.current_beat_index = Some(idx);
+                if let Err(err) = self.bar_editor.sender().send(BarEditorMsg::TickReceived(idx)){
+                    println!("Error while trying to update tick: {:?}", err);
+                }
             },
             MetronomeMsg::ToggleMeasureEditor => {
                 self.bar_editor_active = !self.bar_editor_active;

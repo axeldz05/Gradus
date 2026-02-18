@@ -4,7 +4,7 @@ use relm4::factory::FactoryVecDeque;
 use gradus_core::beat::BeatAccent;
 use gradus_core::metronome::{MetronomeCmd};
 use std::sync::mpsc::Sender;
-use crate::factories::{BeatItem, BeatOutput};
+use crate::factories::{BeatInput, BeatItem, BeatOutput};
 
 #[derive(Debug)]
 pub enum BarEditorOutput {
@@ -23,6 +23,7 @@ pub enum BarEditorMsg {
     ChangeSignature { upper: u32, lower: u32 },
     ClearError,
     SetAmountOfBeats(u32),
+    TickReceived(usize)
 }
 
 #[relm4::component(pub)]
@@ -113,6 +114,11 @@ impl SimpleComponent for BarEditorModel {
             BarEditorMsg::ChangeSignature { upper, lower } => {
                 self.sync_audio(&sender);
             },
+            BarEditorMsg::TickReceived(idx) => {
+                self.beats.send(idx, BeatInput::HasTicked);
+                let previous_idx = idx.checked_sub(1).unwrap_or(self.beats.len()-1);
+                self.beats.send(previous_idx, BeatInput::EndTick);
+            },
             BarEditorMsg::ClearError => self.error_msg = None,
             BarEditorMsg::SetAmountOfBeats(amount) => {
                 self.set_amount_of_beats(amount);
@@ -124,7 +130,7 @@ impl SimpleComponent for BarEditorModel {
 
 impl BarEditorModel {
     fn sync_audio(&mut self, sender: &ComponentSender<BarEditorModel>) {
-        let beat_items : Vec<Option<BeatAccent>> = self.beats.guard().iter().map(|item| item.state.into()).collect();
+        let beat_items : Vec<Option<BeatAccent>> = self.beats.guard().iter().map(|item| item.accent.into()).collect();
         let res = self.audio_sender.send(MetronomeCmd::SetBar(beat_items.clone()));
         match res {
             Ok(_) => (),
