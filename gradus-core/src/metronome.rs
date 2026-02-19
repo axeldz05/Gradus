@@ -94,7 +94,6 @@ pub struct Metronome{
 pub enum MetronomeCmd {
     SetBPM(u32),
     SetBar(Vec<Option<BeatAccent>>),
-    SetAmountOfBeats(u32),
     Play,
     Stop,
 }
@@ -131,9 +130,6 @@ impl Metronome{
                             synth.is_playing = false;
                             synth.current_sample_count = 0;
                         },
-                        MetronomeCmd::SetAmountOfBeats(amount_of_beats) => {
-                            //synth.set_amount_of_beats(amount_of_beats);
-                        }
                     }
                 }
                 synth.process(data, channels);

@@ -1,5 +1,5 @@
 use relm4::*;
-use gtk::{glib, prelude::*};
+use gtk::prelude::*;
 
 use crate::app::{AppMsg, AppMode};
 

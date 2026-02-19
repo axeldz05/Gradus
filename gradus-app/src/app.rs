@@ -1,6 +1,5 @@
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller, RelmApp, RelmWidgetExt, SimpleComponent};
-use std::{fs, io, env};
-use std::path::Path;
+use std::fs;
 
 use gtk::prelude::*;
 use std::convert::identity;

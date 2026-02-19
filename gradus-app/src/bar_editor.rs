@@ -20,7 +20,6 @@ pub struct BarEditorModel {
 #[derive(Debug)]
 pub enum BarEditorMsg {
     BeatClicked,
-    ChangeSignature { upper: u32, lower: u32 },
     ClearError,
     SetAmountOfBeats(u32),
     TickReceived(usize)
@@ -109,9 +108,6 @@ impl SimpleComponent for BarEditorModel {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             BarEditorMsg::BeatClicked => {
-                self.sync_audio(&sender);
-            },
-            BarEditorMsg::ChangeSignature { upper, lower } => {
                 self.sync_audio(&sender);
             },
             BarEditorMsg::TickReceived(idx) => {
