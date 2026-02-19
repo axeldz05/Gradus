@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use gtk::prelude::{
     DialogExt, GtkWindowExt, WidgetExt,
 };
@@ -19,6 +20,7 @@ pub enum DialogOutput {
     Close,
 }
 
+#[allow(deprecated)]
 #[relm4::component(pub)]
 impl SimpleComponent for DialogModel {
     type Init = bool;
