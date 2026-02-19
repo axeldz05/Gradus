@@ -4,7 +4,7 @@ use relm4::factory::FactoryVecDeque;
 use gradus_core::beat::BeatAccent;
 use gradus_core::metronome::{MetronomeCmd};
 use std::sync::mpsc::Sender;
-use crate::factories::{BeatInput, BeatItem, BeatOutput};
+use crate::beat_item::{BeatInput, BeatItem, BeatOutput};
 
 #[derive(Debug)]
 pub enum BarEditorOutput {

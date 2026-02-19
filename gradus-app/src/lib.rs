@@ -4,4 +4,4 @@ pub mod metronome;
 pub mod dialog;
 pub mod header;
 pub mod bar_editor;
-mod factories;
+mod beat_item;
