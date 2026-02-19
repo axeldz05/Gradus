@@ -71,14 +71,18 @@ impl FactoryComponent for BeatItem {
             ],
             connect_clicked[sender] => move |_| {
                 sender.input(BeatInput::NextAccent);
-                sender.output(BeatOutput::Clicked);
+                if let Err(err) = sender.output(BeatOutput::Clicked){
+                    println!("Error while sending BeatOutput::Clicked: {:?}", err);
+                }
             },
             add_controller = gtk::GestureClick {
                 set_button: gtk::gdk::BUTTON_SECONDARY,
                 connect_pressed[sender] => move |gesture, _n_press, _x, _y| {
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                     sender.input(BeatInput::PreviousAccent);
-                    sender.output(BeatOutput::Clicked);
+                    if let Err(err) = sender.output(BeatOutput::Clicked){
+                        println!("Error while sending BeatOutput::Clicked: {:?}", err);
+                    }
                 }
             }
         }
