@@ -114,8 +114,7 @@ impl SimpleComponent for ScoreEditorModel {
                 voxide.set_options(&options).expect("Error options");
                 if voxide.load_data(&text).is_ok() {
                     if let Ok(base_svg) = voxide.render(Svg::page(1)) { 
-                        // example. TODO: make an algorithm to get where the curso is;
-                        // find target_measure_index and target_node_index
+                        let (target_measure_index, target_note_index) = self.find_cursor_position_in_abc_score();
                         let doc = match roxmltree::Document::parse(&base_svg) {
                             Ok(d) => d,
                             Err(e) => {
@@ -123,19 +122,17 @@ impl SimpleComponent for ScoreEditorModel {
                                 return; 
                             }
                         };
-                        let target_measure_index = 1; 
                         let mut measure_nodes = doc.descendants().filter(|n| {
                             n.attribute("class")
                                 .map(|classes| classes.split_whitespace().any(|c| c == "measure"))
                                 .unwrap_or(false)
                         });
-                        if let Some(measure_node) = measure_nodes.nth(target_measure_index - 1) {
+                        if let Some(measure_node) = measure_nodes.nth(target_measure_index) {
                             let mut note_nodes = measure_node.descendants().filter(|n| {
                                 n.attribute("class")
                                     .map(|classes| classes.split_whitespace().any(|c| c == "note"))
                                     .unwrap_or(false)
                             });
-                            let target_note_index = 2;
                             if let Some(note_node) = note_nodes.nth(target_note_index - 1) {
                                 let svg_final = match note_node.attribute("id") {
                                     Some(note_id) => Self::highlight_note_in_svg(&base_svg, note_id),
@@ -168,5 +165,23 @@ impl ScoreEditorModel {
         id = note_id
         );
         base_svg.replace("</svg>", &format!("{}\n</svg>", style_tag))
+    }
+
+    fn find_cursor_position_in_abc_score(&self) -> (usize, usize) {
+        let cursor_position = self.buffer.cursor_position();
+        let mut end_iter = self.buffer.start_iter();
+        end_iter.forward_cursor_positions(cursor_position);
+        let binding = self.buffer.text(&self.buffer.start_iter(), &end_iter, false);
+        let text = binding.as_str();
+        let target_measure_index = text.matches('|').count();
+        let text_after_last_bar = match text.rfind('|') {
+            Some(index) => &text[index + 1..],
+            None => text.lines().last().unwrap_or("")
+        };
+        let mut target_note_index = text_after_last_bar.split_whitespace().count();
+        if target_note_index == 0 {
+            target_note_index = 1;
+        }
+        (target_measure_index, target_note_index)
     }
 }
