@@ -5,12 +5,7 @@ members = [
     "gradus-app"
 ]
 [workspace.dependencies]
-anyhow = "1.0.79"
 cpal = "0.17.1"
-futures = { version = "0.3.30", features = [
-    "std",
-        "async-await",
-], default-features = false }
 gradus-core = { path = "./gradus-core" }
 
 [workspace.package]

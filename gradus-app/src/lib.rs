@@ -5,3 +5,4 @@ pub mod dialog;
 pub mod header;
 pub mod bar_editor;
 mod beat_item;
+mod score_editor;

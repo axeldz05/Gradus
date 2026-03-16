@@ -1,4 +1,4 @@
-# Gradus: Professional Music Notation & Rhythm Suite
+# Gradus: Music Notation & Rhythm Suite
 
 **Gradus** is a native desktop application designed for musical notation, rhythm editing, and precision practice. Built with **Rust**, **GTK4**, and **Relm4**, it focuses on performance and a data-oriented approach to music theory and execution.
 
@@ -49,7 +49,7 @@ cargo test -p gradus-core
 
     [x] Integration of Verovio for SVG score rendering using ABC notation.
 
-    [ ] Saving and loading configuration of metronome and partiture.
+    [ ] Saving and loading configuration of metronome and music score.
 
 ## Other Features
 
@@ -57,6 +57,6 @@ cargo test -p gradus-core
 
     [ ] Dark/Light theme integration via libadwaita.
 
-    [ ] A player to reproduce partiture thorugh the ABC parser.
+    [ ] A player to reproduce the music score thorugh the ABC parser.
 
 ## Further Testing

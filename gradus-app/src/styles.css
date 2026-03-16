@@ -24,3 +24,35 @@
 .beat-tick {
     border: 2px solid white;
 }
+
+.note-slot {
+    min-height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.line-note {
+    background-image: linear_gradient(to bottom, 
+        transparent 45%, 
+        black 45%, 
+        black 55%, 
+        transparent 55%
+    );
+}
+
+.note-slot:checked {
+    color: black;
+    font-size: 25px;
+    background-image: linear_gradient(to bottom, 
+        transparent 45%, 
+        black 45%, 
+        black 55%, 
+        transparent 55%
+    );
+}
+.score-box {
+    background-color: gray;
+}

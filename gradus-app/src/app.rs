@@ -10,10 +10,13 @@ use crate::dialog::{DialogModel, DialogOutput, DialogInput};
 use crate::tuner::TunerModel;
 use crate::metronome::MetronomeModel;
 
+use crate::score_editor::ScoreEditorModel;
+
 #[derive(Debug, PartialEq)]
 pub enum AppMode {
     Tuner,
-    Metronome
+    Metronome,
+    ScoreEditor
 }
 pub struct AppModel {
     mode: AppMode,
@@ -21,6 +24,7 @@ pub struct AppModel {
     dialog: relm4::Controller<DialogModel>,
     tuner: relm4::Controller<TunerModel>,
     metronome: relm4::Controller<MetronomeModel>,
+    score_editor: relm4::Controller<ScoreEditorModel>,
 }
 
 #[derive(Debug)]
@@ -51,16 +55,18 @@ impl SimpleComponent for AppModel {
                     set_margin_all: 5,
                     #[name = "root_stack"]
                     gtk::Stack {
-                        set_vexpand: false,
+                        set_vexpand: true,
                         set_vhomogeneous: false,
 
                         add_named[Some("tuner")] = model.tuner.widget(),
                         add_named[Some("metronome")] = model.metronome.widget(),
+                        add_named[Some("score_editor")] = model.score_editor.widget(),
                         
                         #[watch]
                         set_visible_child_name: match model.mode{
                             AppMode::Tuner => "tuner",
                             AppMode::Metronome => "metronome",
+                            AppMode::ScoreEditor => "score_editor",
                         },
                     },
                 },
@@ -96,12 +102,17 @@ impl SimpleComponent for AppModel {
             .launch(())
             .detach();
 
+        let score_editor = ScoreEditorModel::builder()
+            .launch(())
+            .detach();
+
         let model = AppModel {
             mode: params,
             header,
             dialog,
             tuner,
-            metronome
+            metronome,
+            score_editor
         };
 
         let widgets = view_output!();

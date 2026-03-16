@@ -38,6 +38,15 @@ impl SimpleComponent for HeaderModel {
                         }
                     },
                 },
+                append = &gtk::ToggleButton {
+                    set_label: "Score Editor",
+                    set_group: Some(&group),
+                    connect_toggled[sender] => move |btn| {
+                        if btn.is_active() {
+                            sender.output(AppMsg::SetMode(AppMode::ScoreEditor)).unwrap()
+                        }
+                    },
+                },
             }
         }
     }
